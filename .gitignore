@@ -1,0 +1,9 @@
+.env
+.vscode/
+.idea*
+venv/
+*cache*
+
+mypy.ini
+*.json
+*.log
