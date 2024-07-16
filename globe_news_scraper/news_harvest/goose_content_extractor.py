@@ -2,13 +2,13 @@
 
 from goose3 import Goose, Article
 
-from globe_news_scraper.models import GooseArticlePrototype
+from globe_news_scraper.models import GooseArticleClone
 
 
 def extract_content(
         raw_html: str,
-) -> GooseArticlePrototype:
+) -> GooseArticleClone:
     g = Goose()
     goose_article = g.extract(raw_html=raw_html)
-    goose_article_prototype = GooseArticlePrototype(goose_article.__dict__)
+    goose_article_prototype = GooseArticleClone(goose_article)
     return goose_article_prototype

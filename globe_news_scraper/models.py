@@ -2,6 +2,8 @@ from pydantic import BaseModel, HttpUrl
 from typing import Optional, List
 from datetime import datetime
 
+from goose3 import Article
+
 
 class GlobeArticle(BaseModel):
     title: str
@@ -19,5 +21,10 @@ class GlobeArticle(BaseModel):
     geographic_connections: Optional[List[str]] = None
     image_url: Optional[HttpUrl] = None
 
-class GooseArticlePrototype(BaseModel):
-    pass
+
+class GooseArticleClone:
+    def __init__(self, goose_article: Article):
+        self.__dict__.update(goose_article.__dict__)
+
+    def __setattr__(self, key, value):
+        self.__dict__[key] = value

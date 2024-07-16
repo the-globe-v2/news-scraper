@@ -1,5 +1,6 @@
 import json
 
+import os
 import structlog
 import logging
 from structlog.stdlib import LoggerFactory
@@ -24,7 +25,7 @@ class GlobeNewsScraper:
         """
 
         # bing_news = BingNewsAPI( blah blah blah )
-        with open("bing_news.json", "r") as news_file:
+        with open("globe_news_scraper/bing_news.json", "r") as news_file:  # TEMPORARY
             api_response = json.load(news_file)
 
         articles = []
@@ -47,7 +48,7 @@ class GlobeNewsScraper:
         structlog-generated messages.
 
         params:
-            log_level (str):
+            log_level (str): The logging level to set for the root logger.
         """
         logger_level = getattr(logging, log_level.upper(), logging.INFO)
 
@@ -58,6 +59,14 @@ class GlobeNewsScraper:
         # Ignore DEBUG messages from urllib3
         urllib3_logger = logging.getLogger("urllib3")
         urllib3_logger.setLevel(logging.INFO)
+
+        # Ignore DEBUG messages from charset_normalizer
+        charset_normalizer_logger = logging.getLogger("charset_normalizer")
+        charset_normalizer_logger.setLevel(logging.INFO)
+
+        # Ensure the logging directory exists
+        log_dir = os.path.dirname(f"{self.config.LOGGING_DIR}/globe_news_scraper.log")
+        os.makedirs(log_dir, exist_ok=True)
 
         # Handlers: file and console with different formats
         # File handler logs in JSON format
