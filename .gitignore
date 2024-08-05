@@ -6,4 +6,6 @@ venv/
 
 mypy.ini
 *.json
+*.pickle
+*.pkl
 *.log
