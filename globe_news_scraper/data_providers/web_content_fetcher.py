@@ -1,46 +1,53 @@
-# path: globe_news_scraper/news_harvest/news_crawler.py
-
 import structlog
 import requests
 from requests.exceptions import SSLError, RequestException
 from random import choice
-
 from typing import Optional, Dict
 
-from playwright.sync_api import sync_playwright
-from playwright._impl._errors import Error as PlaywrightError
+from playwright.sync_api import sync_playwright, Error as PlaywrightError
 
 from globe_news_scraper.config import Config
 
 
-class Crawler:
-    """
-    A class to fetch the raw HTML content of a webpage. It uses the requests library to fetch the page without JS
-    rendering. If the page is not fetched successfully, it uses Playwright to fetch the page with JS rendering.
-
-    params: config (Config): The configuration object.
-    """
-
+class WebContentFetcher:
     def __init__(self, config: Config) -> None:
+        """
+        Initialize the WebContentFetcher.
+
+        Args:
+            config (Config): Configuration object containing necessary settings.
+        """
         self.logger = structlog.get_logger()
         self.user_agents = config.USER_AGENTS
         self.postman_ua = config.POSTMAN_USER_AGENT
         self.headers = config.HEADERS
 
-    def fetch_raw_html(self, url: str) -> Optional[str]:
+    def fetch_content(self, url: str) -> Optional[str]:
+        """
+        Fetch the content of a news webpage using various methods.
+
+        This method attempts to fetch the content using requests, then with a Postman User-Agent,
+        and finally with Playwright if the previous attempts fail.
+
+        Args:
+            url (str): The URL of the webpage to fetch.
+
+        Returns:
+            Optional[str]: The content of the webpage if successful, None otherwise.
+        """
         # Set a random User-Agent header to avoid being blocked
         self.headers["User-Agent"] = choice(self.user_agents)
 
         # first try to fetch the page without JS rendering
-        res = self.__fetch_no_js(url)
+        res = self._fetch_with_requests(url)
         if res["status"] == 200:
             return res["content"]
 
-        # if the page is not fetched successfully, try to fetch it with Postman User-Agent
+        # if the page is not fetched successfully, try to fetch it with Postman User-Agent (seems to help)
         else:
             headers = self.headers
             headers["User-Agent"] = self.postman_ua
-            res = self.__fetch_no_js(url, headers=headers)
+            res = self._fetch_with_requests(url, headers=headers)
             if res["status"] == 200:
                 return res["content"]
 
@@ -48,29 +55,33 @@ class Crawler:
             else:
                 self.logger.debug(
                     f"HTTP {res['status']}: Failed to fetch {url} with 'requests' library. Trying Playwright.")
-                res = self.__fetch_advanced(url)
+                res = self._fetch_with_playwright(url)
                 if res["status"] == 200:
                     return res["content"]
                 else:
                     self.logger.debug(f"HTTP {res['status']}: Playwright failed to load page: {url}")
                     return None
 
-    def __fetch_no_js(self, url: str, headers: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    def _fetch_with_requests(self, url: str, headers: Optional[Dict[str, str]] = None) -> Dict[str, str]:
         """
-        Fetches the raw HTML content of a webpage using requests.
+        Fetch the raw HTML content of a webpage using the requests library.
 
-        :param url (str): The URL of the webpage to fetch.
-        :return: (Dict[str, int | str]) A dictionary containing the HTTP status code and the raw HTML content.
+        Args:
+            url (str): The URL of the webpage to fetch.
+            headers (Optional[Dict[str, str]]): Custom headers to use for the request.
+
+        Returns:
+            Dict[str, str]: A dictionary containing the HTTP status code and the raw HTML content.
         """
         try:
-
             r = requests.get(url, headers=headers if headers else self.headers, timeout=10)
 
             # If the encoding is not apparent, return an empty string and pass on to playwright
             if not r.apparent_encoding:
                 res: Dict[str, int | str] = {
                     "status": 500,
-                    "content": ""}
+                    "content": ""
+                }
             else:
                 res: Dict[str, int | str] = {
                     "status": r.status_code,
@@ -92,15 +103,15 @@ class Crawler:
         }
         return res
 
-    def __fetch_advanced(
-            self,
-            url: str,
-    ) -> Dict[str, int | str | None]:
+    def _fetch_with_playwright(self, url: str) -> Dict[str, str]:
         """
-        Fetches the raw HTML content of a webpage using Playwright.
+        Fetch the raw HTML content of a webpage using Playwright.
 
-        :param url (str): The URL of the webpage to fetch.
-        :return: (Dict[str, int | str | None])A dictionary containing the HTTP status code and the raw HTML content.
+        Args:
+            url (str): The URL of the webpage to fetch.
+
+        Returns:
+            Dict[str, str]: A dictionary containing the HTTP status code and the raw HTML content.
         """
         try:
             with (sync_playwright() as p):
