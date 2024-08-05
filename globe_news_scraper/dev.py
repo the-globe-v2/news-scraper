@@ -1,12 +1,12 @@
 # path: globe_news_scraper/dev.py
-import os
+
 import structlog
-from datetime import datetime
+import time
 
 from globe_news_scraper import GlobeNewsScraper
 # from config import get_config
 # from bing_news_utils import BingNewsAPI  # type: ignore
-# from globe_news_scraper.news_harvest.article_builder import ArticleBuilder
+# from globe_news_scraper.data_providers.article_builder import ArticleBuilder
 # from utils.article_builder import build_article
 
 
@@ -32,7 +32,18 @@ if __name__ == "__main__":
     logger = structlog.get_logger()
 
     gns = GlobeNewsScraper()
-    articles = gns.daily_harvest()
+    start_time = time.time()
 
+    articles = gns.compile_daily_digest()
 
-    print(articles)
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+
+    total_attempted_articles = gns.daily_attempted_articles
+    print(f"Fetched {len(articles)} out of {total_attempted_articles} attempted articles.")
+    print(f"Elapsed time: {elapsed_time:.2f} seconds")
+    for article in articles:
+        print(f"Title: {article.title}")
+        print(f"URL: {article.url}")
+        print(f"Source: {article.source}")
+        print("---")
