@@ -1,7 +1,9 @@
 import os
-import structlog
 import logging
-from typing import List, Dict
+from typing import List, Dict, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import structlog
 from structlog.stdlib import LoggerFactory
 from structlog.processors import JSONRenderer, TimeStamper
 
@@ -17,13 +19,12 @@ class GlobeNewsScraper:
         self.config = get_config(environment)
         self.article_builder = ArticleBuilder(self.config)
         self.news_sources = NewsSourceFactory.get_all_sources(self.config)
+        self.executor = ThreadPoolExecutor(max_workers=self.config.MAX_SCRAPING_WORKERS)
 
-        self._daily_attempted_articles = 0  # tracks number of article urls provided to scraper
-
-        self._configure_logging(self.config.LOG_LEVEL)
         self.logger = structlog.get_logger()
+        self._configure_logging(self.config.LOG_LEVEL)
 
-    def compile_daily_digest(self):
+    def compile_daily_digest(self) -> (List[GlobeArticle], int):
         """
         Collect news articles from all available sources for the day.
 
@@ -33,62 +34,79 @@ class GlobeNewsScraper:
         Returns:
             List[GlobeArticle]: A list of GlobeArticle objects representing
             the collected news articles for the day.
+            int: The number of articles that were attempted to be scraped in the current day.
         """
 
-        self._daily_attempted_articles = 0
+        attempted_articles_count = 0
         all_articles = []
-        for source_api_name, news_source in self.news_sources.items():
-            try:
-                trending_topics = self._fetch_trending_news(news_source)
-                articles = []
-                for topic in trending_topics:
-                    topic_specific_articles = news_source.search_news(topic['query'])
-                    self._daily_attempted_articles += len(topic_specific_articles)  # Track total attempted articles
-                    articles_with_topic_metadata = [
-                        # Merge topic metadata with article metadata
-                        {**art, **topic} for art in topic_specific_articles
-                    ]
-                    articles.extend(
-                        self._build_articles_from_api_response(articles_with_topic_metadata, source_api_name))
-                all_articles.extend(articles)
-            except NewsSourceError as e:
-                self.logger.error(f"Failed to fetch trending topics from {source_api_name}: {e}")
+        with ThreadPoolExecutor(max_workers=self.config.MAX_SCRAPING_WORKERS) as executor:
+            future_to_topic = {}
 
-        return all_articles
+            # Iterate over all news sources and fetch trending topics
+            for source_api_name, news_source in self.news_sources.items():
+                try:
+                    trending_topics = news_source.get_trending_topics()
+                    for topic in trending_topics:
+                        future = executor.submit(self._process_topic, topic, news_source, source_api_name)
+                        future_to_topic[future] = topic
+                except NewsSourceError as e:
+                    self.logger.error(f"Failed to fetch trending topics from {source_api_name}: {e}")
 
-    def _fetch_trending_news(self, news_source: NewsSource) -> List[Dict]:
-        """Fetch trending news topics from a news source object."""
-        try:
-            return news_source.get_trending_topics()
-        except NewsSourceError as e:
-            self.logger.error(f"Error fetching trending topics: {e}")
-            return []
+            # Iterate over the completed article requests as they finish
+            for future in as_completed(future_to_topic):
+                topic = future_to_topic[future]
+                try:
+                    articles = future.result()
+                    all_articles.extend(articles)
+                    attempted_articles_count += len(articles)
+                    self.logger.info(f"Successfully fetched {len(articles)} articles for topic {topic['name']}")
+                except Exception as e:
+                    self.logger.error(f"Failed to fetch articles for topic {topic['name']}: {e}")
 
-    def _build_articles_from_api_response(self, news_items: List[Dict], source_api_name: str) -> List[GlobeArticle]:
+        return all_articles, attempted_articles_count
+
+    def _process_topic(self, topic, news_source: NewsSource, source_api_name: str) -> List[GlobeArticle]:
         """
-        Build GlobeArticle objects from a list of news items, adding additional information
-        such as the API the news originated from, the topic, and whether it is breaking news.
+       Process a single topic (a list of news articles on a topic) as provided by the news api.
 
-        Args:
-            news_items (List[Dict]): A list of news items to build GlobeArticle objects from.
-            source_api_name (str): The name of the news source API.
+       Args:
+           topic (Dict): The topic to process, including all the urls of the articles related to the topic.
+           news_source (NewsSource): The news source to use for fetching articles.
+           source_api_name (str): The name of the source API.
 
-        Returns:
-            List[GlobeArticle]: A list of GlobeArticle objects built from the news items.
-        """
+       Returns:
+           List[GlobeArticle]: A list of built GlobeArticle objects for the topic.
+       """
+        topic_specific_articles = news_source.search_news(topic['query'])
+
+        # Merge the topic metadata with the article metadata, this provides more context to build the GlobeArticle obj
+        articles_with_topic_metadata = [{**art, **topic} for art in topic_specific_articles]
         articles = []
-        for news_item in news_items:
-            try:
-                article = self.article_builder.build(news_item)
-
-                if article:
-                    # Add additional information to the article provided by the news API
-                    article.api_origin = source_api_name
-
-                    articles.append(article)
-            except Exception as e:
-                self.logger.error(f"Failed to build article for {news_item['url']}: {e}")
+        for item in articles_with_topic_metadata:
+            article = self._build_article(item, source_api_name)
+            if article:
+                articles.append(article)
         return articles
+
+    def _build_article(self, news_item: Dict, source_api_name: str) -> Optional[GlobeArticle]:
+        """
+           Call ArticleBuilder class to create a GlobeArticle object from a dictionary containing news metadata.
+
+           Args:
+               news_item (Dict): The news item to build an article from.
+               source_api_name (str): The name of the source API.
+
+           Returns:
+               Optional[GlobeArticle]: A built GlobeArticle object, or None if building fails.
+           """
+        try:
+            article = self.article_builder.build(news_item)
+            if article:
+                article.api_origin = source_api_name
+            return article
+        except Exception as e:
+            self.logger.error(f"Failed to build article for {news_item['url']}: {e}")
+            return None
 
     def _configure_logging(self, log_level: str) -> None:
         """
@@ -111,6 +129,10 @@ class GlobeNewsScraper:
         # Ignore DEBUG messages from urllib3
         urllib3_logger = logging.getLogger("urllib3")
         urllib3_logger.setLevel(logging.INFO)
+
+        # Ignore DEBUG messages from asyncio
+        asyncio_logger = logging.getLogger("asyncio")
+        asyncio_logger.setLevel(logging.INFO)
 
         # Ignore DEBUG messages from goose3.crawler
         goose3_logger = logging.getLogger("goose3.crawler")
