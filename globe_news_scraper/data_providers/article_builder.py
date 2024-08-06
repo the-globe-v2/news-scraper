@@ -22,6 +22,7 @@ class ArticleBuilder:
             config (Config): Configuration object containing necessary settings.
         """
         self.web_content_fetcher = WebContentFetcher(config)
+        self.minimum_content_length = config.MINIMUM_CONTENT_LENGTH
         self.logger = structlog.get_logger()
 
     def build(self, news_item) -> Optional[GlobeArticle]:
@@ -40,7 +41,8 @@ class ArticleBuilder:
             return None
 
         goose_article = self._create_goose_article(raw_article)
-        if not goose_article or len(goose_article.cleaned_text) < 300:  # arbitrary minimum content length
+        if not goose_article or len(
+                goose_article.cleaned_text) < self.minimum_content_length:  # arbitrary minimum content length
             self.logger.debug(f"Insufficient content length for {news_item['url']}")
             return None
 
