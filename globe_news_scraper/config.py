@@ -10,6 +10,10 @@ class Config:
     BING_SEARCH_ENDPOINT = os.getenv("BING_SEARCH_ENDPOINT")
     BING_SEARCH_SUBSCRIPTION_KEY = os.getenv("BING_SEARCH_SUBSCRIPTION_KEY")
 
+    # DATABASE
+    MONGO_URI = os.getenv("MONGO_URI")
+    MONGO_DB = os.getenv("MONGO_DB")
+
     # NEWS SCRAPING
     MAX_SCRAPING_WORKERS = 5  # Maximum number of concurrent scraping workers
     MINIMUM_CONTENT_LENGTH = 300  # Minimum length of article content to be considered valid
@@ -65,7 +69,7 @@ class DevelopmentConfig(Config):
     DEBUG = True
     LOG_LEVEL = "DEBUG"
     LOGGING_DIR = "logs/dev"
-    DATABASE_URI = os.getenv("DEV_DATABASE_URI")
+    MONGO_DB = Config.MONGO_DB + "_dev"
 
 
 class TestingConfig(Config):
@@ -73,24 +77,23 @@ class TestingConfig(Config):
 
     TESTING = True
     LOG_LEVEL = "DEBUG"
-    DATABASE_URI = os.getenv("TEST_DATABASE_URI")
+    MONGO_DB = Config.MONGO_DB + "_test"
 
 
 class ProductionConfig(Config):
     """Production configuration class."""
 
-    DATABASE_URI = os.getenv("PROD_DATABASE_URI")
     LOG_LEVEL = "INFO"
     LOGGING_DIR = "logs"
 
 
 def get_config(environment: str):
     """Retrieve and return the appropriate configuration class based on the environment."""
-    if environment == "production":
+    if environment == "production" or environment == "prod":
         return ProductionConfig
-    elif environment == "testing":
+    elif environment == "testing" or environment == "test":
         return TestingConfig
-    elif environment == "development":
+    elif environment == "development" or environment == "dev":
         return DevelopmentConfig
     else:
-        return Config
+        raise ValueError(f"Invalid environment: {environment}")
