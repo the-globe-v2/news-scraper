@@ -1,6 +1,8 @@
+# path: globe_news_scraper/__init__.py
+
 import os
 import logging
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import structlog
@@ -9,6 +11,7 @@ from structlog.processors import JSONRenderer, TimeStamper
 
 from globe_news_scraper.config import get_config
 from globe_news_scraper.models import GlobeArticle
+from globe_news_scraper.database.mongo_handler import MongoHandler
 from globe_news_scraper.data_providers.article_builder import ArticleBuilder
 from globe_news_scraper.data_providers.news_sources.factory import NewsSourceFactory
 from globe_news_scraper.data_providers.news_sources.base import NewsSource, NewsSourceError
@@ -19,12 +22,19 @@ class GlobeNewsScraper:
         self.config = get_config(environment)
         self.article_builder = ArticleBuilder(self.config)
         self.news_sources = NewsSourceFactory.get_all_sources(self.config)
+        self.db_handler = MongoHandler(self.config)
         self.executor = ThreadPoolExecutor(max_workers=self.config.MAX_SCRAPING_WORKERS)
 
         self.logger = structlog.get_logger()
         self._configure_logging(self.config.LOG_LEVEL)
 
-    def compile_daily_digest(self) -> (List[GlobeArticle], int):
+    def initialize(self) -> None:
+        """
+        Initialize the GlobeNewsScraper by connecting to the database and checking the db, collection and required indexes.
+        """
+        self.db_handler.initialize()
+
+    def compile_daily_digest(self) -> List[GlobeArticle]:
         """
         Collect news articles from all available sources for the day.
 
@@ -37,7 +47,6 @@ class GlobeNewsScraper:
             int: The number of articles that were attempted to be scraped in the current day.
         """
 
-        attempted_articles_count = 0
         all_articles = []
         with ThreadPoolExecutor(max_workers=self.config.MAX_SCRAPING_WORKERS) as executor:
             future_to_topic = {}
@@ -57,13 +66,19 @@ class GlobeNewsScraper:
                 topic = future_to_topic[future]
                 try:
                     articles = future.result()
+
+                    # Insert the articles into the database
+                    # This is done in a single bulk insert operation to improve performance
+                    # Alternatively, articles could be inserted one by one right after they are built
+                    # This would allow for more granular error handling, and a more streamlined process
+                    self.db_handler.insert_bulk_articles(articles)
+
                     all_articles.extend(articles)
-                    attempted_articles_count += len(articles)
                     self.logger.info(f"Successfully fetched {len(articles)} articles for topic {topic['name']}")
                 except Exception as e:
                     self.logger.error(f"Failed to fetch articles for topic {topic['name']}: {e}")
 
-        return all_articles, attempted_articles_count
+        return all_articles
 
     def _process_topic(self, topic, news_source: NewsSource, source_api_name: str) -> List[GlobeArticle]:
         """
@@ -83,9 +98,12 @@ class GlobeNewsScraper:
         articles_with_topic_metadata = [{**art, **topic} for art in topic_specific_articles]
         articles = []
         for item in articles_with_topic_metadata:
-            article = self._build_article(item, source_api_name)
-            if article:
-                articles.append(article)
+
+            # Check if the article already exists in the database and skip scraping if it does
+            if not self.db_handler.does_article_exist(item['url']):
+                article = self._build_article(item, source_api_name)
+                if article:
+                    articles.append(article)
         return articles
 
     def _build_article(self, news_item: Dict, source_api_name: str) -> Optional[GlobeArticle]:
@@ -137,6 +155,10 @@ class GlobeNewsScraper:
         # Ignore DEBUG messages from goose3.crawler
         goose3_logger = logging.getLogger("goose3.crawler")
         goose3_logger.setLevel(logging.INFO)
+
+        # Ignore DEBUG messages from pymongo.*
+        pymongo_logger = logging.getLogger("pymongo")
+        pymongo_logger.setLevel(logging.INFO)
 
         # Ignore DEBUG messages from charset_normalizer
         charset_normalizer_logger = logging.getLogger("charset_normalizer")
@@ -194,13 +216,3 @@ class GlobeNewsScraper:
             wrapper_class=structlog.stdlib.BoundLogger,  # type: ignore
             cache_logger_on_first_use=True,
         )
-
-    @property
-    def daily_attempted_articles(self) -> int:
-        """
-        Get the number of articles attempted to be scraped today.
-
-        Returns:
-            int: The number of articles that were attempted to be scraped in the current day.
-        """
-        return self._daily_attempted_articles

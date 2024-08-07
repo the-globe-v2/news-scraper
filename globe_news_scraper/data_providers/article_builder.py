@@ -46,10 +46,14 @@ class ArticleBuilder:
             self.logger.debug(f"Insufficient content length for {news_item['url']}")
             return None
 
-        return self._create_globe_article(goose_article, news_item)
+        try:
+            return self._create_globe_article(goose_article, news_item)
+        except ArticleBuilderError as e:
+            self.logger.warning(e)
+            return None
 
-    def _create_globe_article(self, goose_article: MutableGooseArticle, news_source_data: Dict[str, Any]) -> Optional[
-        GlobeArticle]:
+    def _create_globe_article(self, goose_article: MutableGooseArticle,
+                              news_source_data: Dict[str, Any]) -> GlobeArticle:
         """
         Create a GlobeArticle object from a MutableGooseArticle
         and the additional news source data provided by the news api.
@@ -59,10 +63,13 @@ class ArticleBuilder:
             news_source_data (Dict[str, Any]): Additional data about the news article from the source api.
 
         Returns:
-            Optional[GlobeArticle]: A GlobeArticle object if successfully created, None otherwise.
+            GlobeArticle: A GlobeArticle object if successfully create.
+
+        Raises:
+            ArticleBuilderError: If the GlobeArticle object cannot be created.
         """
         try:
-            return GlobeArticle(
+            built_globe_article = GlobeArticle(
                 title=news_source_data.get('title', getattr(goose_article, 'title', '')),
                 url=news_source_data.get('url', ''),
                 description=news_source_data.get('description', getattr(goose_article, 'description', '')),
@@ -80,9 +87,11 @@ class ArticleBuilder:
                 is_breaking_news=news_source_data.get('is_breaking_news', False),
                 trending_date=datetime.datetime.today()
             )
+            self.logger.debug(f"Successfully created GlobeArticle object for {news_source_data['url']}")
+            return built_globe_article
+
         except Exception as e:
-            self.logger.warning(f"Failed to create GlobeArticle object for {news_source_data['url']}: {e}")
-            return None
+            raise ArticleBuilderError(f"Failed to create GlobeArticle object for {news_source_data['url']}: {e}")
 
     @staticmethod
     def _get_image_url(goose_article) -> Optional[str]:

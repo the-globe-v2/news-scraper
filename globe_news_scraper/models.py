@@ -1,33 +1,39 @@
-from pydantic import BaseModel, HttpUrl
+# path: globe_news_scraper/models.py
+
+from pydantic import BaseModel, HttpUrl, Field
 from typing import Optional, List
 from datetime import datetime
 
 from goose3 import Article
 
+from globe_news_scraper.version import CURRENT_SCRAPER_VERSION
+
 
 class GlobeArticle(BaseModel):
-    title: str                                                          # title of the article
-    url: HttpUrl                                                        # url of the article
-    description: str                                                    # description of the article
-    date_published: datetime                                            # publication date of the article
-    provider: str                                                       # provider of the article
-    language: str                                                       # language of the article
-    content: str                                                        # main article body
-    keywords: List[str] = []                                            # keywords associated with the article
-    is_breaking_news: bool = False                                      # whether the article is breaking news
-    category: Optional[str] = None                                      # category of the article
-    authors: Optional[List[str]] = None                                 # authors of the article
-    summary: Optional[str] = None                                       # summary of the article
-    geographic_origin: Optional[str] = None                             # where the article originated from
-    geographic_connections: Optional[List[str]] = None                  # what countries the article is connected to
-    image_url: Optional[HttpUrl] = None                                 # url of article header image
-    trending_date: Optional[datetime] = None                            # date the article was trending
-    api_origin: Optional[str] = None                                    # which api the article originated from
+    title: str  # title of the article
+    url: HttpUrl  # url of the article
+    description: str  # description of the article
+    date_published: datetime  # publication date of the article
+    provider: str  # provider of the article
+    language: str  # language of the article
+    content: str  # main article body
+    keywords: List[str] = Field(default=list())  # keywords associated with the article
+    is_breaking_news: bool = Field(default=False)  # whether the article is breaking news
+    scraper_version: str = Field(default=CURRENT_SCRAPER_VERSION)  # version of the scraper that fetched the article
+    category: Optional[str] = Field(default=None)  # category of the article
+    authors: Optional[List[str]] = Field(default=None)  # authors of the article
+    summary: Optional[str] = Field(default=None)  # summary of the article
+    geographic_origin: Optional[str] = Field(default=None)  # where the article originated from
+    geographic_connections: Optional[List[str]] = Field(default=None)  # what countries the article is connected to
+    image_url: Optional[HttpUrl] = Field(default=None)  # url of article header image
+    trending_date: Optional[datetime] = Field(default=None)  # date the article was trending
+    api_origin: Optional[str] = Field(default=None)  # which api the article originated from
 
     def update(self, **kwargs):
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
+
 
 class MutableGooseArticle:
     """
