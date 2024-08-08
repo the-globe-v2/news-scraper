@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any
 import structlog
 
 from globe_news_scraper.config import Config
+from globe_news_scraper.monitoring import GlobeScraperTelemetry
 from globe_news_scraper.models import GlobeArticle, MutableGooseArticle
 from globe_news_scraper.data_providers.web_content_fetcher import WebContentFetcher
 from globe_news_scraper.data_providers.goose_content_extractor import extract_content
@@ -14,14 +15,16 @@ class ArticleBuilderError(Exception):
 
 
 class ArticleBuilder:
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, telemetry: GlobeScraperTelemetry):
         """
         Initialize the ArticleBuilder.
 
         Args:
             config (Config): Configuration object containing necessary settings.
+            telemetry (GlobeScraperTelemetry): Telemetry object for tracking requests and articles.
         """
-        self.web_content_fetcher = WebContentFetcher(config)
+        self.telemetry = telemetry
+        self.web_content_fetcher = WebContentFetcher(config, self.telemetry.request_tracker)
         self.minimum_content_length = config.MINIMUM_CONTENT_LENGTH
         self.logger = structlog.get_logger()
 
@@ -37,19 +40,25 @@ class ArticleBuilder:
         """
         raw_article = self._fetch_article_content(news_item['url'])
         if not raw_article:
+            self.telemetry.article_counter.track_scrape_attempt(news_item['url'], success=False)
             self.logger.debug(f"No content to build GlobeArticle object with for {news_item['url']}")
             return None
 
         goose_article = self._create_goose_article(raw_article)
         if not goose_article or len(
                 goose_article.cleaned_text) < self.minimum_content_length:  # arbitrary minimum content length
+            self.telemetry.article_counter.track_scrape_attempt(news_item['url'], success=False)
+
+            # articles with insufficient content length should be retried with a different request method
             self.logger.debug(f"Insufficient content length for {news_item['url']}")
             return None
 
         try:
+            self.telemetry.article_counter.track_scrape_attempt(news_item['url'], success=True)
             return self._create_globe_article(goose_article, news_item)
         except ArticleBuilderError as e:
             self.logger.warning(e)
+            self.telemetry.article_counter.track_scrape_attempt(news_item['url'], success=False)
             return None
 
     def _create_globe_article(self, goose_article: MutableGooseArticle,

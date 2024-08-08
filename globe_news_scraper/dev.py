@@ -16,8 +16,14 @@ def main():
         articles = scraper.compile_daily_digest()
         end_time = time.time()
         elapsed_time = end_time - start_time
+
+        scraper.telemetry.log_article_stats()
+        scraper.telemetry.log_request_summary()
+        scraper.telemetry.log_all_request_status_codes()
+
         print(
-            f"Fetched and stored {len(articles)} articles out of {"WIP"} attempts in {elapsed_time} seconds")
+            f"Fetched and stored {len(articles)} articles out of "
+            f"{scraper.telemetry.article_counter.get_total_attempted_articles()} attempts in {elapsed_time} seconds")
         print("breakpoint")
     except Exception as e:
         print(f"An error occurred during initialization: {str(e)}")
