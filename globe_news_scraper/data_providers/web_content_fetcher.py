@@ -7,10 +7,11 @@ from typing import Optional, Dict
 from playwright.sync_api import sync_playwright, Error as PlaywrightError
 
 from globe_news_scraper.config import Config
+from globe_news_scraper.monitoring.request_tracker import RequestTracker
 
 
 class WebContentFetcher:
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, request_tracker: RequestTracker) -> None:
         """
         Initialize the WebContentFetcher.
 
@@ -21,6 +22,7 @@ class WebContentFetcher:
         self.user_agents = config.USER_AGENTS
         self.postman_ua = config.POSTMAN_USER_AGENT
         self.headers = config.HEADERS
+        self.request_tracker = request_tracker
 
     def fetch_content(self, url: str) -> Optional[str]:
         """
@@ -41,28 +43,39 @@ class WebContentFetcher:
         # first try to fetch the page without JS rendering
         res = self._fetch_with_requests(url)
         if res["status"] == 200:
+            self.request_tracker.track_request("basic_request", res["status"])
             return res["content"]
 
         # if the page is not fetched successfully, try to fetch it with Postman User-Agent (seems to help)
         else:
+            # track the failed request
+            self.request_tracker.track_request("basic_request", res["status"])
+
             headers = self.headers
             headers["User-Agent"] = self.postman_ua
             res = self._fetch_with_requests(url, headers=headers)
             if res["status"] == 200:
+                self.request_tracker.track_request("postman_request", res["status"])
                 return res["content"]
 
             # if the page is still not fetched successfully, try to fetch it with Playwright
             else:
+                # track the failed request
+                self.request_tracker.track_request("postman_request", res["status"])
+
                 self.logger.debug(
                     f"HTTP {res['status']}: Failed to fetch {url} with 'requests' library. Trying Playwright.")
                 res = self._fetch_with_playwright(url)
                 if res["status"] == 200:
+                    self.request_tracker.track_request("playwright_request", res["status"])
                     return res["content"]
                 else:
+                    # track the failed request
+                    self.request_tracker.track_request("playwright_request", res["status"])
                     self.logger.debug(f"HTTP {res['status']}: Playwright failed to load page: {url}")
                     return None
 
-    def _fetch_with_requests(self, url: str, headers: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    def _fetch_with_requests(self, url: str, headers: Optional[Dict[str, str]] = None) -> Dict[str, str | int]:
         """
         Fetch the raw HTML content of a webpage using the requests library.
 
@@ -103,7 +116,7 @@ class WebContentFetcher:
         }
         return res
 
-    def _fetch_with_playwright(self, url: str) -> Dict[str, str]:
+    def _fetch_with_playwright(self, url: str) -> Dict[str, str | int]:
         """
         Fetch the raw HTML content of a webpage using Playwright.
 
@@ -123,7 +136,7 @@ class WebContentFetcher:
                     browser.close()
                     res: Dict[str, int | str | None] = {
                         "status": response.status,
-                        "content": None
+                        "content": ""
                     }
                     return res
                 else:
@@ -143,3 +156,12 @@ class WebContentFetcher:
             "content": None
         }
         return res
+
+    def get_request_tracker(self) -> RequestTracker:
+        """
+        Get the RequestTracker object used by the WebContentFetcher.
+
+        Returns:
+            RequestTracker: The RequestTracker object.
+        """
+        return self.request_tracker

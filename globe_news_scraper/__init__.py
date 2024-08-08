@@ -2,7 +2,7 @@
 
 import os
 import logging
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import structlog
@@ -11,6 +11,7 @@ from structlog.processors import JSONRenderer, TimeStamper
 
 from globe_news_scraper.config import get_config
 from globe_news_scraper.models import GlobeArticle
+from globe_news_scraper.monitoring import GlobeScraperTelemetry
 from globe_news_scraper.database.mongo_handler import MongoHandler
 from globe_news_scraper.data_providers.article_builder import ArticleBuilder
 from globe_news_scraper.data_providers.news_sources.factory import NewsSourceFactory
@@ -20,7 +21,8 @@ from globe_news_scraper.data_providers.news_sources.base import NewsSource, News
 class GlobeNewsScraper:
     def __init__(self, environment: str = "development"):
         self.config = get_config(environment)
-        self.article_builder = ArticleBuilder(self.config)
+        self.telemetry = GlobeScraperTelemetry()
+        self.article_builder = ArticleBuilder(self.config, self.telemetry)
         self.news_sources = NewsSourceFactory.get_all_sources(self.config)
         self.db_handler = MongoHandler(self.config)
         self.executor = ThreadPoolExecutor(max_workers=self.config.MAX_SCRAPING_WORKERS)
@@ -100,7 +102,9 @@ class GlobeNewsScraper:
         for item in articles_with_topic_metadata:
 
             # Check if the article already exists in the database and skip scraping if it does
-            if not self.db_handler.does_article_exist(item['url']):
+            if self.db_handler.does_article_exist(item['url']):
+                self.logger.debug(f"Article already exists in the database, skipping: {item['url']}")
+            else:
                 article = self._build_article(item, source_api_name)
                 if article:
                     articles.append(article)
@@ -216,3 +220,12 @@ class GlobeNewsScraper:
             wrapper_class=structlog.stdlib.BoundLogger,  # type: ignore
             cache_logger_on_first_use=True,
         )
+
+    def get_telemetry(self) -> GlobeScraperTelemetry:
+        """
+        Get the telemetry object for the GlobeNewsScraper.
+
+        Returns:
+            GlobeScraperTelemetry: The telemetry object.
+        """
+        return self.telemetry
