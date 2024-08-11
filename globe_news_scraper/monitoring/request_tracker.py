@@ -9,10 +9,10 @@ class RequestTracker:
     A class for tracking web requests to news sites and their success rates.
     Different news providers are tracked separately.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         self._requests: Dict[str, Dict[int, int]] = defaultdict(lambda: {})
 
-    def track_request(self, method: str, status_code: int):
+    def track_request(self, method: str, status_code: int) -> None:
         if status_code in self._requests[method].keys():
             self._requests[method][status_code] += 1
         else:

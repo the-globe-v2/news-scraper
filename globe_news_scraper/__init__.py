@@ -2,7 +2,7 @@
 
 import os
 import logging
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, cast, Literal
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import structlog
@@ -19,8 +19,8 @@ from globe_news_scraper.data_providers.news_sources.base import NewsSource, News
 
 
 class GlobeNewsScraper:
-    def __init__(self, environment: str = "development"):
-        self.config = get_config(environment)
+    def __init__(self) -> None:
+        self.config = get_config(cast(Literal['prod', 'dev', 'test'], os.environ.get('ENV', 'dev')))
         self.telemetry = GlobeScraperTelemetry()
         self.article_builder = ArticleBuilder(self.config, self.telemetry)
         self.news_sources = NewsSourceFactory.get_all_sources(self.config)
@@ -32,7 +32,7 @@ class GlobeNewsScraper:
 
     def initialize(self) -> None:
         """
-        Initialize the GlobeNewsScraper by connecting to the database and checking the db, collection and required indexes.
+        Initialize the GlobeNewsScraper by connecting to mongodb and checking the db, collection and required indexes.
         """
         self.db_handler.initialize()
 
@@ -82,7 +82,8 @@ class GlobeNewsScraper:
 
         return all_articles
 
-    def _process_topic(self, topic, news_source: NewsSource, source_api_name: str) -> List[GlobeArticle]:
+    def _process_topic(self, topic: Dict[str, str], news_source: NewsSource, source_api_name: str) -> List[
+        GlobeArticle]:
         """
        Process a single topic (a list of news articles on a topic) as provided by the news api.
 

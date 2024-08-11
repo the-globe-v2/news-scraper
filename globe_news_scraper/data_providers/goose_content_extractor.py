@@ -1,6 +1,6 @@
 # Path: globe_news_scraper/data_providers/goose_content_extractor.py
 
-from goose3 import Goose, Article
+from goose3 import Goose # type: ignore[import-untyped]
 
 from globe_news_scraper.models import MutableGooseArticle
 

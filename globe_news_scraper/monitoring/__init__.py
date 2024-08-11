@@ -1,6 +1,7 @@
 # path: globe_news_scraper/monitoring/__init__.py
 
 import structlog
+from typing import Dict
 from collections import defaultdict
 
 from globe_news_scraper.monitoring.request_tracker import RequestTracker
@@ -15,7 +16,7 @@ class GlobeScraperTelemetry:
     Performance metrics and more detailed analytics are a potential future addition.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._logger = structlog.get_logger()
         self._request_tracker = RequestTracker()
         self._article_counter = ArticleCounter()
@@ -28,7 +29,7 @@ class GlobeScraperTelemetry:
     def article_counter(self) -> ArticleCounter:
         return self._article_counter
 
-    def log_request_summary(self):
+    def log_request_summary(self) -> None:
         for method, stats in self._request_tracker.get_all_requests().items():
             success_rate = self._request_tracker.get_success_rate(method)
             self._logger.info(f"{method} request stats",
@@ -36,7 +37,7 @@ class GlobeScraperTelemetry:
                               failure_count=sum(count for status_code, count in stats.items() if status_code != 200),
                               success_rate=f"{success_rate:.2%}")
 
-    def log_all_request_status_codes(self):
+    def log_all_request_status_codes(self) -> None:
         all_request_stats = self._request_tracker.get_all_requests()
         self._logger.info("Detailed status code breakdown for all methods: ")
         for method, stats in all_request_stats.items():
@@ -50,7 +51,7 @@ class GlobeScraperTelemetry:
                               **status_code_percentages)
 
         # Log overall status code distribution
-        all_stats = defaultdict(int)
+        all_stats: Dict[int, int] = defaultdict(int)
         for stats in all_request_stats.values():
             for status_code, count in stats.items():
                 all_stats[status_code] += count
@@ -63,7 +64,7 @@ class GlobeScraperTelemetry:
                           total_requests=total_overall,
                           **overall_percentages)
 
-    def log_article_stats(self):
+    def log_article_stats(self) -> None:
         total_articles = self._article_counter.get_total_attempted_articles()
         provider_stats = self._article_counter.get_all_provider_stats()
         self._logger.info("Article scraping stats",

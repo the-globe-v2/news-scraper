@@ -1,6 +1,8 @@
 structlog~=24.2.0
 pydantic~=2.7.3
+pydantic_settings~=2.4.0
 requests~=2.32.3
 playwright~=1.44.0
 goose3~=3.1.19
 pymongo~=4.8.0
+llm_guard~=0.3.14

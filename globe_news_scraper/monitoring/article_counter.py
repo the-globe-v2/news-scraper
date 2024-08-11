@@ -7,11 +7,12 @@ class ArticleCounter:
     """
     A class to track the number of articles scraped from each provider and the total number of articles scraped.
     """
-    def __init__(self):
-        self._total_attempted_articles = 0
-        self._article_providers = defaultdict(lambda: {"failed": 0, "successful": 0})
 
-    def track_scrape_attempt(self, url: str, success: bool):
+    def __init__(self) -> None:
+        self._total_attempted_articles = 0
+        self._article_providers: Dict[str, Dict[str, int]] = defaultdict(lambda: {"failed": 0, "successful": 0})
+
+    def track_scrape_attempt(self, url: str, success: bool) -> None:
         self._total_attempted_articles += 1
 
         provider = urlparse(url).netloc

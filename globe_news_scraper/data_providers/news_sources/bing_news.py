@@ -1,9 +1,10 @@
 # globe_news_scraper/data_providers/news_sources/bing_news.py
 import requests
-from typing import List, Dict, Any
+from typing import List, Dict, Any, cast
 
 import structlog
 
+from globe_news_scraper.config import Config
 from globe_news_scraper.data_providers.news_sources.base import NewsSource, NewsSourceError
 
 
@@ -12,7 +13,7 @@ class BingNewsError(NewsSourceError):
 
 
 class BingNewsSource(NewsSource):
-    def __init__(self, config):
+    def __init__(self, config: Config) -> None:
         self.logger = structlog.get_logger()
         self.subscription_key = config.BING_SEARCH_SUBSCRIPTION_KEY
         self.endpoint = config.BING_SEARCH_ENDPOINT
@@ -21,18 +22,18 @@ class BingNewsSource(NewsSource):
         headers = {"Ocp-Apim-Subscription-Key": self.subscription_key}
         try:
             response = requests.get(url, headers=headers, params=params)
-            response.raise_for_status()
-            return response.json()
+            response.raise_for_status()  # Raise an exception for 4xx and 5xx status codes
+            return cast(Dict[str, Any], response.json())
         except requests.RequestException as e:
             raise BingNewsError(f"Bing News API request failed: {str(e)}")
 
-    def get_trending_topics(self, **kwargs) -> List[Dict[str, Any]]:
+    def get_trending_topics(self, **kwargs: Any) -> List[Dict[str, Any]]:
         url = f"{self.endpoint}/v7.0/news/trendingtopics"
         params = {"mkt": kwargs.get("mkt", "en-US"), "count": kwargs.get("count", 100)}
         trending_topic_response = self._make_request(url, params)
         return self._process_trending_topics_response(trending_topic_response)
 
-    def get_news_by_category(self, category: str, **kwargs) -> List[Dict[str, Any]]:
+    def get_news_by_category(self, category: str, **kwargs: Any) -> List[Dict[str, Any]]:
         url = f"{self.endpoint}/v7.0/news"
         params = {
             "category": category,
@@ -43,7 +44,7 @@ class BingNewsSource(NewsSource):
         response = self._make_request(url, params)
         return self._process_news_response(response)
 
-    def search_news(self, query: str, **kwargs) -> List[Dict[str, Any]]:
+    def search_news(self, query: str, **kwargs: Any) -> List[Dict[str, Any]]:
         url = f"{self.endpoint}/v7.0/news/search"
         params = {
             "q": query,
