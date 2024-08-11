@@ -6,6 +6,7 @@ import structlog
 from globe_news_scraper.config import Config
 from globe_news_scraper.monitoring import GlobeScraperTelemetry
 from globe_news_scraper.models import GlobeArticle, MutableGooseArticle
+from globe_news_scraper.data_providers.content_validator import ContentValidator
 from globe_news_scraper.data_providers.web_content_fetcher import WebContentFetcher
 from globe_news_scraper.data_providers.goose_content_extractor import extract_content
 
@@ -25,7 +26,7 @@ class ArticleBuilder:
         """
         self.telemetry = telemetry
         self.web_content_fetcher = WebContentFetcher(config, self.telemetry.request_tracker)
-        self.minimum_content_length = config.MINIMUM_CONTENT_LENGTH
+        self.content_validator = ContentValidator(config)
         self.logger = structlog.get_logger()
 
     def build(self, news_item) -> Optional[GlobeArticle]:
@@ -38,24 +39,36 @@ class ArticleBuilder:
         Returns:
             Optional[GlobeArticle]: A GlobeArticle object if successfully built, None otherwise.
         """
+
+        # Fetch the raw article content from a news_item URL
         raw_article = self._fetch_article_content(news_item['url'])
         if not raw_article:
             self.telemetry.article_counter.track_scrape_attempt(news_item['url'], success=False)
             self.logger.debug(f"No content to build GlobeArticle object with for {news_item['url']}")
             return None
 
-        goose_article = self._create_goose_article(raw_article)
-        if not goose_article or len(
-                goose_article.cleaned_text) < self.minimum_content_length:  # arbitrary minimum content length
+        # Build a MutableGooseArticle object from the raw article content
+        try:
+            goose_article = self._create_goose_article(raw_article)
+        except ArticleBuilderError as e:
             self.telemetry.article_counter.track_scrape_attempt(news_item['url'], success=False)
-
-            # articles with insufficient content length should be retried with a different request method
-            self.logger.debug(f"Insufficient content length for {news_item['url']}")
             return None
 
+        # Sanitize the main article body content in the MutableGooseArticle
+        goose_article.cleaned_text = self.content_validator.sanitize(goose_article.cleaned_text)
+
+        # Validate content in the MutableGooseArticle
+        article_is_valid, issues = self.content_validator.validate(goose_article.cleaned_text)
+        if not article_is_valid:
+            self.telemetry.article_counter.track_scrape_attempt(news_item['url'], success=False)
+            self.logger.debug(f"Invalid content for {news_item['url']}: {issues}")
+            return None
+
+        # Create a GlobeArticle object from the MutableGooseArticle and news item data
         try:
+            globe_article_object = self._create_globe_article(goose_article, news_item)
             self.telemetry.article_counter.track_scrape_attempt(news_item['url'], success=True)
-            return self._create_globe_article(goose_article, news_item)
+            return globe_article_object
         except ArticleBuilderError as e:
             self.logger.warning(e)
             self.telemetry.article_counter.track_scrape_attempt(news_item['url'], success=False)

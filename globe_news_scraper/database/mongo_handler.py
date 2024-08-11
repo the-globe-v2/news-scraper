@@ -2,7 +2,9 @@
 
 from typing import List
 
+import structlog
 from pymongo import MongoClient
+
 from globe_news_scraper.config import Config
 from globe_news_scraper.models import GlobeArticle
 
@@ -13,6 +15,7 @@ class MongoHandlerError(Exception):
 
 class MongoHandler:
     def __init__(self, config: Config):
+        self.logger = structlog.get_logger()
         self.client = MongoClient(config.MONGO_URI)
         self.db = self.client[config.MONGO_DB]
         self.articles = self.db.articles
@@ -37,9 +40,9 @@ class MongoHandler:
                 if f"{index}_1" not in existing_indexes:
                     raise MongoHandlerError(f"Required index '{index}' does not exist")
 
-            print("Database initialization successful")
+            self.logger.info("Database initialization successful.")
         except Exception as e:
-            print(f"Database initialization failed: {str(e)}")
+            self.logger.critical(f"Database initialization failed: {str(e)}")
             raise MongoHandlerError(f"Database initialization failed: {str(e)}")
 
     def insert_article(self, article: GlobeArticle):

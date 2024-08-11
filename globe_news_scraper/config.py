@@ -17,6 +17,7 @@ class Config:
     # NEWS SCRAPING
     MAX_SCRAPING_WORKERS = 5  # Maximum number of concurrent scraping workers
     MINIMUM_CONTENT_LENGTH = 300  # Minimum length of article content to be considered valid
+    MAX_CONTENT_LENGTH = 500000  # Maximum length of article content to be considered valid
     USER_AGENTS = [
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.3",
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 "
