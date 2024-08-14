@@ -1,10 +1,10 @@
-.env
-.vscode/
+.vscode*
 .idea*
-venv/
+venv*
 *cache*
 
 mypy.ini
+*.env
 *.json
 *.pickle
 *.pkl

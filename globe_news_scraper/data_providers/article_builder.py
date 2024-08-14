@@ -29,7 +29,7 @@ class ArticleBuilder:
         self.content_validator = ContentValidator(config)
         self.logger = structlog.get_logger()
 
-    def build(self, news_item) -> Optional[GlobeArticle]:
+    def build(self, news_item: Dict[str, str]) -> Optional[GlobeArticle]:
         """
         Build a GlobeArticle object from a news item.
 
@@ -116,7 +116,7 @@ class ArticleBuilder:
             raise ArticleBuilderError(f"Failed to create GlobeArticle object for {news_source_data['url']}: {e}")
 
     @staticmethod
-    def _get_image_url(goose_article) -> Optional[str]:
+    def _get_image_url(goose_article: MutableGooseArticle) -> Optional[str]:
         """
         Extract the image URL from a goose article. Still WIP.
 

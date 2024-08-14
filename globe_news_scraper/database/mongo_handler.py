@@ -1,6 +1,6 @@
 # path: globe_news_scraper/database/mongo_handler.py
 
-from typing import List
+from typing import List, Dict, Any, cast
 
 import structlog
 from pymongo import MongoClient
@@ -14,13 +14,13 @@ class MongoHandlerError(Exception):
 
 
 class MongoHandler:
-    def __init__(self, config: Config):
+    def __init__(self, config: Config) -> None:
         self.logger = structlog.get_logger()
-        self.client = MongoClient(config.MONGO_URI)
+        self.client: MongoClient = MongoClient(config.MONGO_URI)
         self.db = self.client[config.MONGO_DB]
         self.articles = self.db.articles
 
-    def initialize(self):
+    def initialize(self) -> None:
         try:
             # Check if the database exists
             db_names = self.client.list_database_names()
@@ -45,13 +45,16 @@ class MongoHandler:
             self.logger.critical(f"Database initialization failed: {str(e)}")
             raise MongoHandlerError(f"Database initialization failed: {str(e)}")
 
-    def insert_article(self, article: GlobeArticle):
-        article_dict = article.dict()
+    def insert_article(self, article: GlobeArticle) -> str:
+        article_dict = article.model_dump()
         result = self.articles.insert_one(article_dict)
 
-        # TODO: Add error handling
+        # TODO: Improve error handling.
 
-        return result.inserted_id
+        if result.inserted_id is None:
+            raise MongoHandlerError(f"Failed to insert article to {self.db}.")
+        else:
+            return cast(str, result.inserted_id)
 
     def insert_bulk_articles(self, articles: list) -> List[str]:
         serialized_articles = [self._serialize_article(article) for article in articles]
@@ -68,10 +71,10 @@ class MongoHandler:
         return self.articles.count_documents({"url": url}) > 0
 
     @staticmethod
-    def _serialize_article(article: GlobeArticle) -> dict:
-        serialized_article = article.dict()
+    def _serialize_article(article: GlobeArticle) -> Dict[str, Any]:
+        serialized_article = article.model_dump()
         serialized_article.update({
             'url': str(article.url),
             'image_url': str(article.image_url) if article.image_url else None,
         })
-        return serialized_article
+        return cast(Dict[str, Any], serialized_article)

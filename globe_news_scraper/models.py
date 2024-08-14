@@ -1,10 +1,10 @@
 # path: globe_news_scraper/models.py
 
 from pydantic import BaseModel, HttpUrl, Field
-from typing import Optional, List
+from typing import Optional, List, Any, Dict
 from datetime import datetime
 
-from goose3 import Article
+from goose3 import Article  # type: ignore[import-untyped]
 
 from globe_news_scraper.version import CURRENT_SCRAPER_VERSION
 
@@ -29,7 +29,7 @@ class GlobeArticle(BaseModel):
     trending_date: Optional[datetime] = Field(default=None)  # date the article was trending
     api_origin: Optional[str] = Field(default=None)  # which api the article originated from
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: Any) -> None:
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
@@ -43,7 +43,7 @@ class MutableGooseArticle:
         It maintains the original immutable attributes while providing a mutable interface.
         """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """
         Initialize the MutableGooseArticle.
 
@@ -53,10 +53,10 @@ class MutableGooseArticle:
         """
         super().__init__(*args, **kwargs)
         # Dictionary to store mutable versions of attributes
-        self._mutable_attributes = {}
+        self._mutable_attributes: Dict[str, Any] = {}
 
     @classmethod
-    def from_article(cls, article) -> 'MutableGooseArticle':
+    def from_article(cls, article: Article) -> 'MutableGooseArticle':
         """
         Create a MutableGooseArticle instance from an existing Article object.
 
@@ -76,7 +76,7 @@ class MutableGooseArticle:
                     pass  # Skip attributes that can't be read
         return new_article
 
-    def __getattribute__(self, name):
+    def __getattribute__(self, name: str) -> Any:
         """
         Customize attribute access.
 
@@ -93,7 +93,7 @@ class MutableGooseArticle:
             return object.__getattribute__(self, '_mutable_attributes')[name]
         return super().__getattribute__(name)
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name: str, value: Any) -> None:
         """
         Customize attribute assignment.
 

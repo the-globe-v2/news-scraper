@@ -3,17 +3,17 @@
 import re
 import html
 import unicodedata
-from typing import List, Tuple
+from typing import List, Tuple, cast
 
-from llm_guard.input_scanners import PromptInjection
-from llm_guard.input_scanners.prompt_injection import MatchType
+from llm_guard.input_scanners import PromptInjection  # type: ignore[import-untyped]
+from llm_guard.input_scanners.prompt_injection import MatchType  # type: ignore[import-untyped]
 
 from globe_news_scraper.config import Config
 
 
 class ContentValidator:
     def __init__(self, config: Config):
-        self._min_content_length = config.MINIMUM_CONTENT_LENGTH
+        self._min_content_length = config.MIN_CONTENT_LENGTH
         self._max_content_length = config.MAX_CONTENT_LENGTH
         self._blocked_patterns = [
             r'<script.*?>.*?</script>',  # Match scripts
@@ -44,7 +44,7 @@ class ContentValidator:
         return len(issues) == 0, issues
 
     def _detect_prompt_injection(self, content: str) -> bool:
-        return self._prompt_injection_scanner.scan(content)[1]
+        return cast(bool, self._prompt_injection_scanner.scan(content)[1])  # 3rd element is the boolean result
 
     def sanitize(self, content: str) -> str:
         # Remove or escape potentially harmful content
