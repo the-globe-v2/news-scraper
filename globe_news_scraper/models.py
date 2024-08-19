@@ -1,111 +1,78 @@
 # path: globe_news_scraper/models.py
 
 from pydantic import BaseModel, HttpUrl, Field
-from typing import Optional, List, Any, Dict
+from pydantic_extra_types.country import CountryAlpha2
+from pydantic_extra_types.language_code import LanguageAlpha2
+from typing import Optional, List, Any, Annotated
 from datetime import datetime
 
 from goose3 import Article  # type: ignore[import-untyped]
 
-from globe_news_scraper.version import CURRENT_SCRAPER_VERSION
+from globe_news_scraper.version import CURRENT_SCHEMA_VERSION
 
 
 class GlobeArticle(BaseModel):
-    title: str  # title of the article
-    url: HttpUrl  # url of the article
-    description: str  # description of the article
-    date_published: datetime  # publication date of the article
-    provider: str  # provider of the article
-    language: str  # language of the article
-    content: str  # main article body
-    keywords: List[str] = Field(default=list())  # keywords associated with the article
-    is_breaking_news: bool = Field(default=False)  # whether the article is breaking news
-    scraper_version: str = Field(default=CURRENT_SCRAPER_VERSION)  # version of the scraper that fetched the article
-    category: Optional[str] = Field(default=None)  # category of the article
-    authors: Optional[List[str]] = Field(default=None)  # authors of the article
-    summary: Optional[str] = Field(default=None)  # summary of the article
-    geographic_origin: Optional[str] = Field(default=None)  # where the article originated from
-    geographic_connections: Optional[List[str]] = Field(default=None)  # what countries the article is connected to
-    image_url: Optional[HttpUrl] = Field(default=None)  # url of article header image
-    trending_date: Optional[datetime] = Field(default=None)  # date the article was trending
-    api_origin: Optional[str] = Field(default=None)  # which api the article originated from
+    """
+    Represents a news article with various attributes.
+
+    This class encapsulates all relevant information about a news article,
+    including its content, metadata, and source information.
+
+    Attributes:
+        title (str): The headline or title of the article.
+        url (Annotated[str, HttpUrl]): The web address where the article can be found.
+        description (str): A brief summary or description of the article's content.
+        date_published (datetime): The date and time when the article was originally published.
+        provider (str): The name of the news outlet or platform that published the article.
+        language (Optional[LanguageAlpha2]): The primary language of the article's content, in ISO 639-1 format.
+        content (str): The main body text of the article.
+        origin_country (CountryAlpha2): The country where the article was published, in ISO 3166-1 alpha-2 format.
+        keywords (List[str]): A list of relevant keywords or tags associated with the article.
+        source_api (str): The name or identifier of the API from which the article data was retrieved.
+        schema_version (str): The version of the data schema used to structure this article's information.
+        date_scraped (datetime): The date and time when the article was collected by the scraper.
+        category (Optional[str]): The topical category or section under which the article is classified.
+        authors (Optional[List[str]]): A list of the article's authors or contributors.
+        related_countries (Optional[List[CountryAlpha2]]): Countries mentioned or relevant to the article's content.
+        image_url (Optional[Annotated[str, HttpUrl]): The URL of the main image associated with the article.
+    """
+
+    title: str
+    url: Annotated[str, HttpUrl]
+    description: str
+    date_published: datetime
+    provider: str
+    language: Optional[LanguageAlpha2]
+    content: str
+    origin_country: CountryAlpha2
+    keywords: List[str] = Field(default_factory=list)
+    source_api: str
+    schema_version: str = Field(default=CURRENT_SCHEMA_VERSION)
+    date_scraped: datetime = Field(default_factory=datetime.now)
+    category: Optional[str] = None
+    authors: Optional[List[str]] = None
+    related_countries: Optional[List[CountryAlpha2]] = None
+    image_url: Optional[Annotated[str, HttpUrl]] = None
 
     def update(self, **kwargs: Any) -> None:
+        """
+        LIKELY REDUNDANT METHOD
+        Update existing article's attributes with the provided keyword arguments.
+
+        Args:
+            **kwargs: Keyword arguments representing attributes to update and their new values.
+
+        Example:
+            article.update(title="New Title", category="Politics", authors=["John Doe", "Jane Smith"])
+        """
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
 
 
-class MutableGooseArticle:
-    """
-        A mutable version of the goose3 Article class.
-
-        This class inherits from Article but allows for modification of its attributes.
-        It maintains the original immutable attributes while providing a mutable interface.
-        """
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        """
-        Initialize the MutableGooseArticle.
-
-        Args:
-            *args: Variable length argument list.
-            **kwargs: Arbitrary keyword arguments.
-        """
-        super().__init__(*args, **kwargs)
-        # Dictionary to store mutable versions of attributes
-        self._mutable_attributes: Dict[str, Any] = {}
-
-    @classmethod
-    def from_article(cls, article: Article) -> 'MutableGooseArticle':
-        """
-        Create a MutableGooseArticle instance from an existing Article object.
-
-        Args:
-            article (Article): The original Article object to copy from.
-
-        Returns:
-            MutableGooseArticle: A new MutableGooseArticle instance with attributes copied from the original.
-        """
-        new_article = cls()
-        for name in dir(article):
-            if not name.startswith('_'):  # Skip private and special attributes
-                try:
-                    value = getattr(article, name)
-                    setattr(new_article, name, value)
-                except AttributeError:
-                    pass  # Skip attributes that can't be read
-        return new_article
-
-    def __getattribute__(self, name: str) -> Any:
-        """
-        Customize attribute access.
-
-        This method first checks if the attribute has been modified (exists in _mutable_attributes).
-        If so, it returns the modified value. Otherwise, it falls back to the original attribute.
-
-        Args:
-            name (str): The name of the attribute to access.
-
-        Returns:
-            The value of the attribute.
-        """
-        if name in object.__getattribute__(self, '_mutable_attributes'):
-            return object.__getattribute__(self, '_mutable_attributes')[name]
-        return super().__getattribute__(name)
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        """
-        Customize attribute assignment.
-
-        This method allows for setting new values for attributes, storing them in _mutable_attributes.
-
-        Args:
-            name (str): The name of the attribute to set.
-            value: The value to assign to the attribute.
-        """
-        if name == '_mutable_attributes':
-            # Directly set _mutable_attributes to avoid recursion
-            object.__setattr__(self, name, value)
-        else:
-            # Store all other attributes in _mutable_attributes
-            self._mutable_attributes[name] = value
+class ArticleData(BaseModel):
+    cleaned_text: str
+    meta_lang: Optional[LanguageAlpha2]
+    meta_keywords: str
+    authors: List[str]
+    top_image: Optional[Annotated[str, HttpUrl]]

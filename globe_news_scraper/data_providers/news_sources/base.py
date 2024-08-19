@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any
 
 from globe_news_scraper.config import Config
+from globe_news_scraper.data_providers.news_sources.models import NewsSourceArticleData
 
 
 class NewsSourceError(Exception):
@@ -15,13 +16,10 @@ class NewsSource(ABC):
         pass
 
     @abstractmethod
-    def get_trending_topics(self, **kwargs: Any) -> List[Dict[str, Any]]:
+    def get_country_trending_news(self, **kwargs: Any) -> List[NewsSourceArticleData]:
         pass
 
+    @property
     @abstractmethod
-    def get_news_by_category(self, category: str, **kwargs: Any) -> List[Dict[str, Any]]:
-        pass
-
-    @abstractmethod
-    def search_news(self, query: str, **kwargs: Any) -> List[Dict[str, Any]]:
+    def available_countries(self) -> List[str]:
         pass

@@ -1,7 +1,6 @@
 # path: globe_news_scraper/config.py
 
-import os
-from typing import List, Dict, Literal
+from typing import List, Dict, Literal, Annotated
 from pydantic import Field, HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -17,10 +16,25 @@ class Config(BaseSettings):
     LOG_LEVEL: str = Field(default='INFO')
     LOGGING_DIR: str = Field(default='logs')
 
-    # API Keys and Endpoints
-    GOOGLE_API_KEY: str
-    BING_SEARCH_ENDPOINT: HttpUrl
+    # Bing News Search Configuration
+    BING_SEARCH_ENDPOINT: Annotated[str, HttpUrl]
     BING_SEARCH_SUBSCRIPTION_KEY: str
+    BING_SEARCH_COUNTRIES: List[str] = Field(default=[
+        "es-AR", "en-AU", "de-AT", "nl-BE", "fr-BE", "pt-BR", "en-CA", "fr-CA",
+        "es-CL", "da-DK", "fi-FI", "fr-FR", "de-DE", "zh-HK", "en-IN", "en-ID",
+        "it-IT", "ja-JP", "ko-KR", "en-MY", "es-MX", "nl-NL", "en-NZ", "no-NO",
+        "zh-CN", "pl-PL", "en-PH", "ru-RU", "en-ZA", "es-ES", "sv-SE", "fr-CH",
+        "de-CH", "zh-TW", "tr-TR", "en-GB", "en-US", "es-US"
+    ])  # reference: https://learn.microsoft.com/en-us/bing/search-apis/bing-news-search/reference/market-codes
+
+    # News API Configuration
+    NEWS_API_KEY: str
+    NEWS_API_COUNTRIES: List[str] = Field(default=[
+        "ar", "au", "at", "be", "br", "bg", "ca", "cn", "co", "cu", "cz", "eg", "fr",
+        "de", "gr", "hk", "hu", "in", "id", "ie", "il", "it", "jp", "lv", "lt", "my",
+        "mx", "ma", "nl", "nz", "ng", "no", "ph", "pl", "pt", "ro", "ru", "sa", "rs",
+        "sg", "sk", "si", "za", "kr", "se", "ch", "tw", "th", "tr", "ae", "ua", "gb", "us", "ve"
+    ])
 
     # Database Configuration
     MONGO_URI: str
@@ -32,7 +46,7 @@ class Config(BaseSettings):
     MAX_CONTENT_LENGTH: int = Field(default=500000)
 
     # HTTP Configuration
-    USER_AGENTS: List[str] = Field(default_factory=lambda: [
+    USER_AGENTS: List[str] = Field(default=[
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.3',
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 '
         'Safari/537.3',
@@ -65,7 +79,7 @@ class Config(BaseSettings):
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.3',
         'Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Geck',
         'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.122 Safari/537.3',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 '
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0'
         'Safari/537.36 OPR/109.0.0.'
     ])
     POSTMAN_USER_AGENT: str = Field(default='PostmanRuntime/7.39.0')
