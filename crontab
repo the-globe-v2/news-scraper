@@ -1,0 +1,3 @@
+# Run daily at 2:00 AM
+0 2 * * * /usr/local/bin/python /scraper/daily_scrape.py >> /var/log/cron.log 2>&1
+

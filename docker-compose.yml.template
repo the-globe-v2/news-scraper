@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    env_file:
+      - ${ENV:-dev}.env
+    environment:
+      - ENV=${ENV:-dev}
+      - MONGO_URI=mongodb://mongo:27017
+    depends_on:
+      - mongo
+    command: bash -c "cron && python /scraper/main.py --env ${ENV:-dev} && tail -f /var/log/cron.log"
+
+  mongo:
+    image: mongo:latest
+    volumes:
+      - mongodb_data:/data/db
+
+volumes:
+  mongodb_data:
