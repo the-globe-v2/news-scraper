@@ -110,6 +110,8 @@ class WebContentFetcher:
             # If the encoding is not apparent, return an empty string and pass on to playwright
             if not r.apparent_encoding:
                 return 500, ''
+            # For some reason, the encoding is not set correctly for some sites?
+            r.encoding = r.apparent_encoding
             return r.status_code, r.text
         except Exception as e:
             self._logger.warning(f'Request failed for {url}: {str(e)}')
