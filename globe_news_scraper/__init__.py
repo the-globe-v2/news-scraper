@@ -16,18 +16,19 @@ from globe_news_scraper.data_providers.news_pipeline import NewsPipeline
 class GlobeNewsScraper:
     def __init__(self) -> None:
         self._config = get_config(cast(Literal['prod', 'dev', 'test'], os.environ.get('ENV', 'dev')))
-        self._telemetry = GlobeScraperTelemetry()
 
         # Set up and configure logging
-        configure_logging(self._config.LOG_LEVEL, self._config.LOGGING_DIR)
+        configure_logging(self._config.LOG_LEVEL)
         self._logger = structlog.get_logger()
+
+        self._telemetry = GlobeScraperTelemetry()
 
         # Try establishing a connection to the MongoDB database
         try:
             self._db_handler = MongoHandler(self._config)
             self._db_handler.initialize()
         except MongoHandlerError as mhe:
-            self._logger.critical(f"Failed to connect to MongoDB: {mhe}")
+            self._logger.critical("Failed to connect to MongoDB", error=str(mhe))
 
     def scrape_daily(self) -> List[str]:
         """

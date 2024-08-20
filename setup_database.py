@@ -5,14 +5,8 @@ from pymongo import MongoClient
 from typing import Literal, cast
 from globe_news_scraper.config import get_config
 
-# Add the project root to the Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 
 def setup_database():
-    # Change the working directory to the globe_news_scraper package
-    os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'globe_news_scraper'))
-
     # Get the environment, use 'development' as default
     environment = os.getenv('ENV', 'dev')
     if environment not in ['dev', 'prod', 'test']:
