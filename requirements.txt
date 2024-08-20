@@ -1,8 +1,12 @@
 structlog~=24.2.0
 pydantic~=2.7.3
+pydantic-extra-types~=2.9.0
 pydantic_settings~=2.4.0
 requests~=2.32.3
 playwright~=1.44.0
+beautifulsoup4~=4.12.3
 goose3~=3.1.19
 pymongo~=4.8.0
 llm_guard~=0.3.14
+pycountry~=24.6.1
+tenacity~=9.0.0

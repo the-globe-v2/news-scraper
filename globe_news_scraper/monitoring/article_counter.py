@@ -15,7 +15,7 @@ class ArticleCounter:
     def track_scrape_attempt(self, url: str, success: bool) -> None:
         self._total_attempted_articles += 1
 
-        provider = urlparse(url).netloc
+        provider = urlparse(str(url)).netloc
         status = "successful" if success else "failed"
         self._article_providers[provider][status] += 1
 

@@ -13,8 +13,7 @@ def main() -> None:
     scraper = GlobeNewsScraper()
     start_time = time.time()
     try:
-        scraper.initialize()
-        articles = scraper.compile_daily_digest()
+        articles = scraper.scrape_daily()
         end_time = time.time()
         elapsed_time = end_time - start_time
 
