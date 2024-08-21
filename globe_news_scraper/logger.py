@@ -20,27 +20,18 @@ class WarningFilter(logging.Filter):
         return not re.match(r'Publish date \d+ could not be resolved to UTC', record.getMessage())
 
 
-def configure_logging(log_level: str, logging_dir: str = 'logs') -> None:
-    """
-    Configure logging for the application. This sets up the root logger to log to both a file and the console.
+def configure_logging(log_level: str, logging_dir: str = 'logs', environment: str = 'dev') -> None:
+    logger_level = logging.INFO if environment == 'prod' else getattr(logging, log_level.upper(), logging.INFO)
 
-    Args:
-        log_level (str): The logging level to set for the root logger.
-        logging_dir (str): The directory where log files will be stored.
-    """
-    logger_level = getattr(logging, log_level.upper(), logging.INFO)
-
-    # Set up the root logger
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logger_level)
+    # Configure logging
+    logging.basicConfig(level=logger_level)
 
     # Ignore DEBUG messages from specific loggers
     for logger_name in ['urllib3', 'asyncio', 'goose3.crawler', 'pymongo', 'charset_normalizer']:
         logging.getLogger(logger_name).setLevel(logging.INFO)
 
     # Remove the warning about publish date not being resolved to UTC
-    logger = logging.getLogger('goose3.crawler')
-    logger.addFilter(WarningFilter())
+    logging.getLogger('goose3.crawler').addFilter(WarningFilter())
 
     # Ensure the logging directory exists
     log_dir = os.path.dirname(f'{logging_dir}/globe_news_scraper.log')
@@ -54,69 +45,35 @@ def configure_logging(log_level: str, logging_dir: str = 'logs') -> None:
     )
     file_handler.setLevel(logger_level)
 
-    # Console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logger_level)
-
-    # Define shared processors
-    shared_processors = [
-        structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-    ]
-
-    # Determine the log output format by the terminal type, isatty() returns True if the file descriptor is an open tty
-    if sys.stderr.isatty():
-        # Development: Pretty printing
-        processors = shared_processors + [
-            structlog.dev.ConsoleRenderer(),
-        ]
-    else:
-        # Production: JSON output
-        processors = shared_processors + [
-            structlog.processors.dict_tracebacks,
-            structlog.processors.JSONRenderer(),
-        ]
-
     # Configure structlog
     structlog.configure(
-        processors=processors,
+        processors=[
+            structlog.stdlib.filter_by_level,
+            structlog.stdlib.add_logger_name,
+            structlog.stdlib.add_log_level,
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            structlog.processors.UnicodeDecoder(),
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ],
         context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
+        wrapper_class=structlog.stdlib.BoundLogger,  # type: ignore
         cache_logger_on_first_use=True,
     )
 
-    # Set up formatters
-    file_formatter = structlog.stdlib.ProcessorFormatter(
-        processor=structlog.processors.JSONRenderer(),
-        foreign_pre_chain=shared_processors,
-    )
-    console_formatter = structlog.stdlib.ProcessorFormatter(
-        processor=structlog.dev.ConsoleRenderer(),
-        foreign_pre_chain=shared_processors,
+    # Set up formatter
+    formatter = structlog.stdlib.ProcessorFormatter(
+        processor=structlog.dev.ConsoleRenderer() if environment == 'dev' else structlog.processors.JSONRenderer(),
     )
 
-    file_handler.setFormatter(file_formatter)
-    console_handler.setFormatter(console_formatter)
-
+    # Add handler to the root logger
+    root_logger = logging.getLogger()
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    root_logger.addHandler(handler)
     root_logger.addHandler(file_handler)
-    root_logger.addHandler(console_handler)
-
-
-def get_logger(name: str):
-    """
-    Get a logger with the given name.
-
-    Args:
-        name (str): The name of the logger.
-
-    Returns:
-        structlog.stdlib.BoundLogger: A structured logger.
-    """
-    return structlog.get_logger(name)
 
 
 def log_exception(logger, exc_info, **kwargs):

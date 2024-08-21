@@ -3,21 +3,19 @@ version: '3.8'
 services:
   app:
     build: .
+    env_file:
+      - ${ENV:-dev}.env
     environment:
+      - ENV=${ENV:-dev}
       - MONGO_URI=mongodb://mongo:27017
-      - MONGO_DB=globe_news_scraper
-      - BING_SEARCH_ENDPOINT=${BING_SEARCH_ENDPOINT}
-      - BING_SEARCH_SUBSCRIPTION_KEY=${BING_SEARCH_SUBSCRIPTION_KEY}
-      - NEWS_API_KEY=${NEWS_API_KEY}
     depends_on:
       - mongo
-    command: ["python", "main.py", "--env", "${ENV:-dev}"]
+    command: bash -c "cron && python /scraper/main.py --env ${ENV:-dev} && tail -f /var/log/cron.log"
 
   mongo:
     image: mongo:latest
     volumes:
       - mongodb_data:/data/db
-    command: mongod --bind_ip 127.0.0.1,mongo
 
 volumes:
   mongodb_data:
