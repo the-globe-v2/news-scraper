@@ -1,7 +1,7 @@
-# path: globe_news_scraper/scripts/setup_database.py
+# path: globe_news_scraper/setup_database.py
 import os
-import sys
-from pymongo import MongoClient
+
+from pymongo import MongoClient, ASCENDING, DESCENDING
 from typing import Literal, cast
 from globe_news_scraper.config import get_config
 
@@ -30,13 +30,23 @@ def setup_database():
 
         # Create indexes
         articles.create_index("url", unique=True)
+        articles.create_index("title")
         articles.create_index("date_published")
         articles.create_index("provider")
-        articles.create_index("keywords")
         articles.create_index("category")
+
+        # Create new compound index to later filter out curated articles
+        articles.create_index([("llm_curated", ASCENDING), ("date_scraped", DESCENDING)],
+                              name="llm_curated_date_scraped_idx")
 
         print(f"Database setup completed successfully for environment: {environment}")
         print(f"Database name: {db_name}")
+        print("Created indexes:")
+        print("- url (unique)")
+        print("- date_published")
+        print("- provider")
+        print("- category")
+        print("- llm_curated_date_scraped_idx (compound: llm_curated ASC, date_scraped DESC)")
 
     except Exception as e:
         print(f"An error occurred while setting up the database: {e}")
