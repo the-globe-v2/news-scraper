@@ -26,7 +26,11 @@ def main():
     logger.info(f"Starting GlobeNewsScraper in {args.env} mode")
 
     # Initialize and run the scraper
-    scraper = GlobeNewsScraper()
+    try:
+        scraper = GlobeNewsScraper()
+    except Exception as e:
+        logger.critical("Failed to initialize GlobeNewsScraper", error=str(e))
+        quit()
     articles = scraper.scrape_daily()
 
     # Log results

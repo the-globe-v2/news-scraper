@@ -1,5 +1,6 @@
 services:
   scraper:
+    container_name: globe-news-scraper
     build: .
     env_file:
       - ${ENV:-dev}.env
@@ -11,6 +12,7 @@ services:
     command: bash -c "cron && python /scraper/main.py --env ${ENV:-dev} && tail -f /var/log/cron.log"
 
   mongo:
+    container_name: scraper-mongodb
     image: mongo:latest
     volumes:
       - mongodb_data:/data/db
