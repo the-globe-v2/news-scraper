@@ -33,14 +33,6 @@ def configure_logging(log_level: str, logging_dir: str = 'logs', environment: st
     log_dir = os.path.dirname(f'{logging_dir}/globe_news_scraper.log')
     os.makedirs(log_dir, exist_ok=True)
 
-    # Set up log rotation
-    file_handler = RotatingFileHandler(
-        f'{logging_dir}/globe_news_scraper.log',
-        maxBytes=10 * 1024 * 1024,  # 10MB
-        backupCount=5
-    )
-    file_handler.setLevel(logger_level)
-
     # Configure structlog
     structlog.configure(
         processors=[
@@ -67,9 +59,23 @@ def configure_logging(log_level: str, logging_dir: str = 'logs', environment: st
     # Add handler to the root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(logger_level)
-    handler = logging.StreamHandler()
-    handler.setFormatter(formatter)
-    root_logger.addHandler(handler)
+
+    # Remove all existing handlers
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
+    # Add StreamHandler
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    root_logger.addHandler(stream_handler)
+
+    # Add FileHandler
+    file_handler = RotatingFileHandler(
+        f'{logging_dir}/globe_news_scraper.log',
+        maxBytes=10 * 1024 * 1024,  # 10MB
+        backupCount=5
+    )
+    file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)
 
 

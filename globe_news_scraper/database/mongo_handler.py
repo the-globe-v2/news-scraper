@@ -38,7 +38,8 @@ class MongoHandler:
                 raise MongoHandlerError(f"Collection '{self._articles.name}' does not exist")
 
             # Check if required indexes exist
-            required_indexes = ["url", "date_published", "provider", "keywords", "category"]
+            # TODO: Add check for compound index
+            required_indexes = ["url", "title", "date_published", "provider", "category"]
             existing_indexes = self._articles.index_information()
 
             for index in required_indexes:

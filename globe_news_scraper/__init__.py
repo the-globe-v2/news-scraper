@@ -29,6 +29,7 @@ class GlobeNewsScraper:
             self._db_handler.initialize()
         except MongoHandlerError as mhe:
             self._logger.critical("Failed to connect to MongoDB", error=str(mhe))
+            raise GlobeNewsScraperError("Failed to connect to MongoDB.")
 
     def scrape_daily(self) -> List[str]:
         """
@@ -53,3 +54,7 @@ class GlobeNewsScraper:
             GlobeScraperTelemetry: The telemetry object.
         """
         return self._telemetry
+
+
+class GlobeNewsScraperError(Exception):
+    """Custom exception for GlobeNewsScraper errors."""

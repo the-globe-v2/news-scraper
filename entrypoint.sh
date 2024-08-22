@@ -1,5 +1,5 @@
-#!/bin/sh
+#!/bin/bash
 # Start the cron service
-cron
-# Run your main Python script
-exec python /scraper/main.py --env prod
+cron -f &
+# Run scraper in production
+python /scraper/main.py --env prod
