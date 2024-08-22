@@ -1,4 +1,3 @@
-# Use an official Python runtime as a parent image
 FROM python:3.11-slim
 
 # Set the working directory in the container
@@ -11,10 +10,6 @@ RUN apt-get update && apt-get install -y \
     software-properties-common \
     git \
     cron \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Firefox and dependencies for Playwright
-RUN apt-get update && apt-get install -y \
     firefox-esr \
     && rm -rf /var/lib/apt/lists/*
 
@@ -51,5 +46,7 @@ ENV ENV=prod
 # Run setup_database.py when the container launches
 RUN python setup_database.py
 
-# Run the command on container startup
-CMD cron && python main.py --env prod
+# Use a shell script to start both cron and the main Python script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+CMD ["/entrypoint.sh"]
