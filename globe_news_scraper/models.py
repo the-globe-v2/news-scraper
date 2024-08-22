@@ -35,6 +35,7 @@ class GlobeArticle(BaseModel):
         authors (Optional[List[str]]): A list of the article's authors or contributors.
         related_countries (Optional[List[CountryAlpha2]]): Countries mentioned or relevant to the article's content.
         image_url (Optional[Annotated[str, HttpUrl]): The URL of the main image associated with the article.
+        llm_curated (bool): (irrelevant to this module) Will be true once the article is curated by globe_news_locator.
     """
 
     title: str
@@ -53,24 +54,20 @@ class GlobeArticle(BaseModel):
     authors: Optional[List[str]] = None
     related_countries: Optional[List[CountryAlpha2]] = None
     image_url: Optional[Annotated[str, HttpUrl]] = None
-
-    def update(self, **kwargs: Any) -> None:
-        """
-        LIKELY REDUNDANT METHOD
-        Update existing article's attributes with the provided keyword arguments.
-
-        Args:
-            **kwargs: Keyword arguments representing attributes to update and their new values.
-
-        Example:
-            article.update(title="New Title", category="Politics", authors=["John Doe", "Jane Smith"])
-        """
-        for key, value in kwargs.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
+    llm_curated: bool = False
 
 
 class ArticleData(BaseModel):
+    """
+    Holds all relevant data extracted from goose3.Article object for further processing.
+
+    Attributes:
+        cleaned_text (str): The cleaned and preprocessed text content of the article.
+        meta_lang (Optional[LanguageAlpha2]): The language of the article's metadata, in ISO 639-1 format.
+        meta_keywords (str): A string representation of the article's metadata keywords.
+        authors (List[str]): A list of the article's authors or contributors.
+        top_image (Optional[Annotated[str, HttpUrl]]): The URL of the main image associated with the article.
+    """
     cleaned_text: str
     meta_lang: Optional[LanguageAlpha2]
     meta_keywords: str
