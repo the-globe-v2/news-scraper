@@ -1,7 +1,5 @@
-version: '3.8'
-
 services:
-  app:
+  scraper:
     build: .
     env_file:
       - ${ENV:-dev}.env
