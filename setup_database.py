@@ -36,8 +36,8 @@ def setup_database():
         articles.create_index("category")
 
         # Create new compound index to later filter out curated articles
-        articles.create_index([("llm_curated", ASCENDING), ("date_scraped", DESCENDING)],
-                              name="llm_curated_date_scraped_idx")
+        articles.create_index([("post_processed", ASCENDING), ("date_scraped", DESCENDING)],
+                              name="post_processed_date_scraped_idx")
 
         print(f"Database setup completed successfully for environment: {environment}")
         print(f"Database name: {db_name}")
@@ -46,7 +46,7 @@ def setup_database():
         print("- date_published")
         print("- provider")
         print("- category")
-        print("- llm_curated_date_scraped_idx (compound: llm_curated ASC, date_scraped DESC)")
+        print("- post_processed_date_scraped_idx (compound: llm_curated ASC, date_scraped DESC)")
 
     except Exception as e:
         print(f"An error occurred while setting up the database: {e}")

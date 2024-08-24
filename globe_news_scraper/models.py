@@ -35,12 +35,14 @@ class GlobeArticle(BaseModel):
         authors (Optional[List[str]]): A list of the article's authors or contributors.
         related_countries (Optional[List[CountryAlpha2]]): Countries mentioned or relevant to the article's content.
         image_url (Optional[Annotated[str, HttpUrl]): The URL of the main image associated with the article.
-        llm_curated (bool): (irrelevant to this module) Will be true once the article is curated by globe_news_locator.
+        post_processed (bool): (irrelevant to this module) Will be true once the article is curated by globe_news_locator.
     """
 
     title: str
+    title_translated: Optional[str] = None
     url: Annotated[str, HttpUrl]
     description: str
+    description_translated: Optional[str] = None
     date_published: datetime
     provider: str
     language: Optional[LanguageAlpha2]
@@ -54,7 +56,7 @@ class GlobeArticle(BaseModel):
     authors: Optional[List[str]] = None
     related_countries: Optional[List[CountryAlpha2]] = None
     image_url: Optional[Annotated[str, HttpUrl]] = None
-    llm_curated: bool = False
+    post_processed: bool = False
 
 
 class ArticleData(BaseModel):
