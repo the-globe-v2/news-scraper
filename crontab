@@ -1,2 +1,5 @@
+# Run scraper on startup
+@reboot cd /scraper && /usr/local/bin/python main.py --env prod
+
 # Run scraper every day at 2:00
-0 2 * * * /usr/local/bin/python /scraper/main.py --env prod >> /var/log/cron.log 2>&1
+0 2 * * * cd /scraper && /usr/local/bin/python main.py --env prod
