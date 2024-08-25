@@ -1,19 +1,12 @@
 # path: globe_news_scraper/setup_database.py
-import os
 
 from pymongo import MongoClient, ASCENDING, DESCENDING
-from typing import Literal, cast
 from globe_news_scraper.config import get_config
 
 
 def setup_database():
-    # Get the environment, use 'development' as default
-    environment = os.getenv('ENV', 'dev')
-    if environment not in ['dev', 'prod', 'test']:
-        raise ValueError("Invalid environment. Use 'dev', 'prod', or 'test'.")
-
     # Get the configuration
-    config = get_config(cast(Literal['dev', 'prod', 'test'], environment))
+    config = get_config()
 
     # Get the database name
     db_name = config.MONGO_DB
@@ -27,26 +20,42 @@ def setup_database():
 
         # Create collections
         articles = db.articles
+        failed_articles = db.failed_articles  # New collection for failed articles
 
-        # Create indexes
+        # Create indexes for articles collection
         articles.create_index("url", unique=True)
         articles.create_index("title")
         articles.create_index("date_published")
         articles.create_index("provider")
         articles.create_index("category")
-
-        # Create new compound index to later filter out curated articles
+        articles.create_index("language")
+        articles.create_index("origin_country")
         articles.create_index([("post_processed", ASCENDING), ("date_scraped", DESCENDING)],
                               name="post_processed_date_scraped_idx")
 
-        print(f"Database setup completed successfully for environment: {environment}")
+        # Create indexes for failed_articles collection
+        failed_articles.create_index("url", unique=True)
+        failed_articles.create_index("date_published")
+        failed_articles.create_index("failure_reason")
+
+        print(f"Database setup completed successfully for: {config.MONGO_DB}")
         print(f"Database name: {db_name}")
-        print("Created indexes:")
+        print("Created collections:")
+        print("- articles")
+        print("- failed_articles")
+        print("Created indexes for articles:")
         print("- url (unique)")
+        print("- title")
         print("- date_published")
         print("- provider")
         print("- category")
-        print("- post_processed_date_scraped_idx (compound: llm_curated ASC, date_scraped DESC)")
+        print("- language")
+        print("- origin_country")
+        print("- post_processed_date_scraped_idx (compound: post_processed ASC, date_scraped DESC)")
+        print("Created indexes for failed_articles:")
+        print("- url (unique)")
+        print("- date_published")
+        print("- failure_reason")
 
     except Exception as e:
         print(f"An error occurred while setting up the database: {e}")

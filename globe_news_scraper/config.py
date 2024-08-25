@@ -1,6 +1,6 @@
 # path: globe_news_scraper/config.py
 
-from typing import List, Dict, Literal, Annotated
+from typing import List, Dict, Annotated
 from pydantic import Field, HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -26,14 +26,6 @@ class Config(BaseSettings):
         "de-CH", "zh-TW", "tr-TR", "en-GB", "en-US", "es-US"
     ])
 
-    # News API Configuration
-    NEWS_API_KEY: str
-    NEWS_API_COUNTRIES: List[str] = Field(default=[
-        "ar", "au", "at", "be", "br", "bg", "ca", "cn", "co", "cu", "cz", "eg", "fr",
-        "de", "gr", "hk", "hu", "in", "id", "ie", "il", "it", "jp", "lv", "lt", "my",
-        "mx", "ma", "nl", "nz", "ng", "no", "ph", "pl", "pt", "ro", "ru", "sa", "rs",
-        "sg", "sk", "si", "za", "kr", "se", "ch", "tw", "th", "tr", "ae", "ua", "gb", "us", "ve"
-    ])
 
     # Database Configuration
     MONGO_URI: str
@@ -81,7 +73,6 @@ class Config(BaseSettings):
     })
 
 
-def get_config(environment: Literal['prod', 'dev', 'test'] = 'dev') -> Config:
-    """Retrieve and return the Config instance based on the environment."""
-    env_file = f'{environment}.env'
-    return Config(_env_file=env_file, _env_file_encoding='utf-8')  # type: ignore
+def get_config() -> Config:
+    """Retrieve and return the Config instance."""
+    return Config()  # type: ignore
