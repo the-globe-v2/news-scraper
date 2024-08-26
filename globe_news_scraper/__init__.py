@@ -26,10 +26,8 @@ class GlobeNewsScraper:
         # Try establishing a connection to the MongoDB database
         try:
             self._db_handler = MongoHandler(self._config)
-            self._db_handler.initialize()
         except MongoHandlerError as mhe:
-            self._logger.critical("Failed to connect to MongoDB", error=str(mhe))
-            raise GlobeNewsScraperError("Failed to connect to MongoDB.")
+            raise GlobeNewsScraperError(f"{str(mhe)}")
 
     def scrape_daily(self) -> List[str]:
         """

@@ -1,13 +1,12 @@
 # path: main.py
 
-import os
 import argparse
 import structlog
-from typing import Literal, cast
 
 from globe_news_scraper import GlobeNewsScraper
 from globe_news_scraper.config import get_config
 from globe_news_scraper.logger import configure_logging
+
 
 def main():
     parser = argparse.ArgumentParser(description="GlobeNewsScraper")
@@ -27,7 +26,7 @@ def main():
     try:
         scraper = GlobeNewsScraper(config)
     except Exception as e:
-        logger.critical("Failed to initialize GlobeNewsScraper", error=str(e))
+        logger.critical("Failed to initialize GlobeNewsScraper: ", error=str(e))
         quit()
     articles = scraper.scrape_daily()
 
@@ -38,6 +37,7 @@ def main():
 
     logger.info(f"Fetched and stored {len(articles)} articles out of "
                 f"{scraper.telemetry.article_counter.get_total_attempted_articles()} attempts")
+
 
 if __name__ == "__main__":
     main()

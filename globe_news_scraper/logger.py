@@ -5,6 +5,7 @@ import re
 import logging
 from logging import LogRecord
 from logging.handlers import RotatingFileHandler
+from typing import Literal
 
 import structlog
 
@@ -19,11 +20,12 @@ class WarningFilter(logging.Filter):
         return not re.match(r'Publish date \d+ could not be resolved to UTC', record.getMessage())
 
 
-def configure_logging(log_level: str, logging_dir: str = 'logs', environment: str = 'dev') -> None:
+def configure_logging(log_level: str, logging_dir: str = 'logs',
+                      environment: Literal['dev', 'prod', 'test'] = 'dev') -> None:
     logger_level = logging.INFO if environment == 'prod' else getattr(logging, log_level.upper(), logging.INFO)
 
     # Ignore DEBUG messages from specific loggers
-    for logger_name in ['urllib3', 'asyncio', 'goose3.crawler', 'pymongo', 'charset_normalizer']:
+    for logger_name in ['urllib3', 'asyncio', 'goose3.crawler', 'pymongo', 'charset_normalizer', 'filelock']:
         logging.getLogger(logger_name).setLevel(logging.INFO)
 
     # Remove the warning about publish date not being resolved to UTC
@@ -47,7 +49,7 @@ def configure_logging(log_level: str, logging_dir: str = 'logs', environment: st
         ],
         context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,  # type: ignore
+        wrapper_class=structlog.stdlib.BoundLogger,  # type: ignore[attr-defined]
         cache_logger_on_first_use=True,
     )
 
@@ -77,20 +79,3 @@ def configure_logging(log_level: str, logging_dir: str = 'logs', environment: st
     )
     file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)
-
-
-def log_exception(logger, exc_info, **kwargs) -> None:
-    """
-    Log an exception with additional context.
-
-    Args:
-        logger: The logger to use.
-        exc_info: The exception info tuple.
-        **kwargs: Additional context to add to the log entry.
-    """
-    logger.exception(
-        "An error occurred",
-        exc_info=exc_info,
-        stack_info=True,
-        **kwargs
-    )
