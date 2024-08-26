@@ -17,12 +17,12 @@ from globe_news_scraper.data_providers.news_sources.factory import NewsSourceFac
 
 
 class NewsPipeline:
-    def __init__(self, config: Config, telemetry: GlobeScraperTelemetry) -> None:
+    def __init__(self, config: Config, db_handler: MongoHandler, telemetry: GlobeScraperTelemetry) -> None:
         self._config = config
         self._logger = structlog.get_logger()
         self._news_sources = NewsSourceFactory.get_all_sources(self._config)
         self._article_builder = ArticleBuilder(self._config, telemetry)
-        self._db_handler = MongoHandler(self._config)
+        self._db_handler = db_handler
 
     def run_pipeline(self) -> List[str]:
         """
@@ -136,4 +136,3 @@ class NewsPipeline:
             build_success_rate=f"{len(built_articles) / len(trending_news):.2%}",
             insert_success_rate=f"{len(inserted_articles) / len(built_articles):.2%}" if built_articles else "N/A"
         )
-

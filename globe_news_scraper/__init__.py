@@ -40,7 +40,7 @@ class GlobeNewsScraper:
             List[GlobeArticle]: A list Mongo ObjectIds representing
             the collected news articles for the day in the DB.
         """
-        pipeline = NewsPipeline(self._config, self._telemetry)
+        pipeline = NewsPipeline(self._config, self._db_handler ,self._telemetry)
         return pipeline.run_pipeline()
 
     @property
