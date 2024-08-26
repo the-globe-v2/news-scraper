@@ -5,7 +5,7 @@ import os
 import structlog
 from typing import List, Dict, Optional, cast, Literal
 
-from globe_news_scraper.config import get_config
+from globe_news_scraper.config import Config
 from globe_news_scraper.logger import configure_logging
 from globe_news_scraper.models import GlobeArticle
 from globe_news_scraper.monitoring import GlobeScraperTelemetry
@@ -14,8 +14,8 @@ from globe_news_scraper.data_providers.news_pipeline import NewsPipeline
 
 
 class GlobeNewsScraper:
-    def __init__(self) -> None:
-        self._config = get_config(cast(Literal['prod', 'dev', 'test'], os.environ.get('ENV', 'dev')))
+    def __init__(self, config: Config) -> None:
+        self._config = config
 
         # Set up and configure logging
         configure_logging(self._config.LOG_LEVEL)

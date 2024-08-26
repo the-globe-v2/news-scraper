@@ -15,9 +15,7 @@ def main():
                         help="Specify the environment (dev, prod or test)")
     args = parser.parse_args()
 
-    # Set up environment
-    os.environ['ENV'] = args.env
-    config = get_config(cast(Literal['dev', 'prod', 'test'], args.env))
+    config = get_config()
 
     # Configure logging
     configure_logging(config.LOG_LEVEL, config.LOGGING_DIR)
@@ -27,7 +25,7 @@ def main():
 
     # Initialize and run the scraper
     try:
-        scraper = GlobeNewsScraper()
+        scraper = GlobeNewsScraper(config)
     except Exception as e:
         logger.critical("Failed to initialize GlobeNewsScraper", error=str(e))
         quit()

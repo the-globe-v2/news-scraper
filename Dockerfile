@@ -1,38 +1,37 @@
 FROM python:3.11-slim
 
+# Set the working directory for the application
 WORKDIR /scraper
 
-# Install necessary packages and clean up in one layer
-RUN apt-get update && apt-get install -y \
+# Install Firefox ESR and necessary system packages
+# Firefox ESR should pull in most necessary X and GTK libraries
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     cron \
-    firefox-esr \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a user and group with specific IDs
-RUN addgroup --system scraper && adduser --system --ingroup scraper scraper
-
-# Copy only the necessary files and install dependencies
+# Install Playwright and Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install playwright \
+    && playwright install firefox --with-deps  # Ensures necessary dependencies are installed
 
-# Copy the rest of the application
+# Copy the application source code to the container
 COPY . .
 
-# Set up the environment
+# Perform setup operations and adjust permissions
 RUN python setup_database.py && \
     chmod +x main.py && \
-    touch /var/log/cron.log && \
-    chmod 0644 /etc/cron.d/scraper-crontab && \
+    touch /var/log/cron.log
+
+# Set up cron jobs by copying a crontab file into the correct directory and applying it
+COPY crontab /etc/cron.d/scraper-crontab
+RUN chmod 0644 /etc/cron.d/scraper-crontab && \
     crontab /etc/cron.d/scraper-crontab
 
-# Change ownership of the working directory
-RUN chown -R scraper:scraper /scraper
-
-# Switch to the non-root user
-USER scraper
-
+# Environment variables can be defined
 ENV NAME GlobeNewsScraper
-ENV ENV=prod
 
-# Start cron in the foreground
-CMD ["cron", "-f"]
+
+# The container will run cron in the foreground to keep it alive
+CMD ["sh", "-c", "cron && tail -f /var/log/cron.log"]
