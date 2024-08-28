@@ -77,33 +77,36 @@ class MongoHandler:
         errors: List[Dict[str, Any]] = []
         inserted_ids: List[Any] = []
 
-        try:
-            result = self._articles.insert_many(serialized_articles, ordered=False)
-            inserted_ids = result.inserted_ids
-        except BulkWriteError as bwe:
-            self._logger.error("MongoDB Bulk write error occurred", exc_info=True)
+        if serialized_articles:
+            try:
+                result = self._articles.insert_many(serialized_articles, ordered=False)
+                inserted_ids = result.inserted_ids
+            except BulkWriteError as bwe:
+                self._logger.error("MongoDB Bulk write error occurred", exc_info=True)
 
-            for error in bwe.details.get('writeErrors', []):
-                errors.append({
-                    'index': error['index'],
-                    'url': serialized_articles[error['index']]['url'],
-                    'error': error['errmsg']
-                })
-            # Use insertedIds from BulkWriteError details if available
-            inserted_ids = bwe.details.get('insertedIds', [])
-        except ExecutionTimeout:
-            self._logger.error("Bulk write operation timed out", exc_info=True)
-            errors.append({'error': 'Operation timed out'})
-        except Exception as e:
-            self._logger.error(f"Unexpected error occurred: {e}", exc_info=True)
-            errors.append({'error': str(e)})
+                for error in bwe.details.get('writeErrors', []):
+                    errors.append({
+                        'index': error['index'],
+                        'url': serialized_articles[error['index']]['url'],
+                        'error': error['errmsg']
+                    })
+                # Use insertedIds from BulkWriteError details if available
+                inserted_ids = bwe.details.get('insertedIds', [])
+            except ExecutionTimeout:
+                self._logger.error("Bulk write operation timed out", exc_info=True)
+                errors.append({'error': 'Operation timed out'})
+            except Exception as e:
+                self._logger.error(f"Unexpected error occurred: {e}", exc_info=True)
+                errors.append({'error': str(e)})
 
-        if not inserted_ids:
-            self._logger.error(f"Failed to insert any articles to {self._db}")
-        elif errors:
-            self._logger.warning(f"Inserted {len(inserted_ids)} articles, but {len(errors)} failed")
+            if not inserted_ids:
+                self._logger.error(f"Failed to insert any articles to {self._db}")
+            elif errors:
+                self._logger.warning(f"Inserted {len(inserted_ids)} articles, but {len(errors)} failed")
+            else:
+                self._logger.info(f"Successfully inserted all {len(inserted_ids)} articles")
         else:
-            self._logger.info(f"Successfully inserted all {len(inserted_ids)} articles")
+            self._logger.debug("No articles to insert.")
 
         return inserted_ids, errors
 

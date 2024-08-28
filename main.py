@@ -17,7 +17,7 @@ def main():
     config = get_config()
 
     # Configure logging
-    configure_logging(config.LOG_LEVEL, config.LOGGING_DIR)
+    configure_logging(log_level=config.LOG_LEVEL, logging_dir=config.LOGGING_DIR, environment=args.env)
     logger = structlog.get_logger()
 
     logger.info(f"Starting GlobeNewsScraper in {args.env} mode")
@@ -25,10 +25,10 @@ def main():
     # Initialize and run the scraper
     try:
         scraper = GlobeNewsScraper(config)
+        articles = scraper.scrape_daily()
     except Exception as e:
-        logger.critical("Failed to initialize GlobeNewsScraper: ", error=str(e))
-        quit()
-    articles = scraper.scrape_daily()
+        logger.critical("Error while running GlobeNewsScraper: ", error=str(e))
+        quit(1)
 
     # Log results
     scraper.telemetry.log_article_stats()
