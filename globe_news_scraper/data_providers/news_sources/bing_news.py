@@ -85,14 +85,14 @@ class BingNewsSource(NewsSource):
     def _process_news_response(self, response: Dict[str, Any], cc: CountryAlpha2, lang: LanguageAlpha2) -> List[
         NewsSourceArticleData]:
 
-        if 'value' in response:
+        try:
             processed_response = [
                 NewsSourceArticleData(
                     title=article.get('name', ''),
                     url=article.get('url', ''),
                     description=article.get('description'),
                     date_published=datetime.fromisoformat(article.get('datePublished')),
-                    provider=article.get('provider', [{}])[0].get('name'),
+                    provider=article.get('provider', [{}])[0].get('name', 'MSN'),
                     image_url=article.get('image', {}).get('thumbnail', {}).get('contentUrl', '').split('&')[0] or None,
                     origin_country=cc,
                     language=lang,
@@ -102,8 +102,8 @@ class BingNewsSource(NewsSource):
             ]
             self._logger.debug(f'Processed {len(processed_response)} news articles from Bing News API')
             return processed_response
-        else:
-            raise BingNewsError('Failed to process news response from Bing News API')
+        except Exception as e:
+            raise BingNewsError(f'Failed to process news response from Bing News API: {e}')
 
     @property
     def available_countries(self) -> List[str]:

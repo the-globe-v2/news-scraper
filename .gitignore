@@ -9,3 +9,4 @@ mypy.ini
 *.pickle
 *.pkl
 *.log
+.DS_Store

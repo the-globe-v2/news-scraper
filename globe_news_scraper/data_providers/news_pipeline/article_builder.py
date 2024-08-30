@@ -1,4 +1,4 @@
-# Path: globe_news_scraper/data_providers/globe_scraper.py
+# Path: globe_news_scraper/data_providers/news_pipeline/article_builder.py
 import datetime
 from typing import Optional, Dict, Any
 import structlog
@@ -104,7 +104,7 @@ class ArticleBuilder:
                 date_published=news_source_data.date_published,
                 provider=news_source_data.provider,
                 content=extracted_data.cleaned_text,
-                keywords=[extracted_data.meta_keywords],
+                keywords=extracted_data.meta_keywords.split() if extracted_data.meta_keywords else [],
                 authors=extracted_data.authors,
                 origin_country=news_source_data.origin_country,
                 image_url=news_source_data.image_url or extracted_data.top_image,
@@ -118,20 +118,6 @@ class ArticleBuilder:
         except Exception as e:
             raise ArticleBuilderError(f"Failed to create GlobeArticle object for {news_source_data.url}: {e}")
 
-    @staticmethod
-    def _get_image_url(article_data: ArticleData) -> Optional[str]:
-        """
-        THIS METHOD DOES NOT WORK AND SHOULD BE FIXED
-        Extract the image URL from a goose article.
-
-        Args:
-            article_data (ArticleData): An ArticleData object.
-
-        Returns:
-            Optional[str]: The URL of the top image if available, None otherwise.
-        """
-        top_image = getattr(article_data, 'top_image', None)
-        return top_image.src if top_image else None
 
     def _fetch_article_content(self, url: str) -> Optional[str]:
         """
