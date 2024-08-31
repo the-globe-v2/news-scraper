@@ -14,13 +14,17 @@ from globe_news_scraper.monitoring.request_tracker import RequestTracker
 
 
 class WebContentFetcher:
+    """
+    A class for fetching the content of web pages using various methods, including requests, custom fetchers,
+    and Playwright for more complex pages.
+    """
+
     def __init__(self, config: Config, request_tracker: RequestTracker) -> None:
         """
         Initialize the WebContentFetcher.
 
-        Args:
-            config (Config): Configuration object containing necessary settings.
-            request_tracker (RequestTracker): Request tracker for monitoring fetch attempts.
+        :param config: Configuration object containing necessary settings.
+        :param request_tracker: Request tracker for monitoring fetch attempts.
         """
         self._logger = structlog.get_logger()
         self._user_agents = config.USER_AGENTS
@@ -32,8 +36,8 @@ class WebContentFetcher:
     def _initialize_domain_fetchers(self) -> Dict[str, Callable[[str], Tuple[int, str]]]:
         """
         Initialize the dictionary of domain-specific fetchers.
-        This method should be implemented to return a dictionary of domain names
-        and their corresponding custom fetcher functions.
+
+        :return: A dictionary of domain names and their corresponding custom fetcher functions.
         """
         return {
             "www.msn.com": self._fetch_msn_com,
@@ -43,19 +47,15 @@ class WebContentFetcher:
         """
         Fetch the content of a news webpage using various methods.
 
-        This method first checks if there's a custom fetcher for the domain, since certain sites are quite finicky,
-        then attempts to fetch the content using requests, then with a Postman User-Agent,
-        and finally with Playwright if the previous attempts fail.
+        This method first checks if there's a custom fetcher for the domain, then attempts to fetch the content
+        using requests, then with a Postman User-Agent, and finally with Playwright if the previous attempts fail.
 
-        Args:
-            url (str): The URL of the webpage to fetch.
-
-        Returns:
-            Optional[str]: The content of the webpage if successful, None otherwise.
+        :param url: The URL of the webpage to fetch.
+        :return: The content of the webpage if successful, None otherwise.
         """
         domain = urlparse(url).netloc
 
-        # check if there is a custom fetcher for the domain
+        # Check if there is a custom fetcher for the domain
         if domain in self._domain_fetchers:
             response_status, response_content = self._domain_fetchers[domain](url)
             if response_status == 200:
@@ -63,7 +63,7 @@ class WebContentFetcher:
                 return response_content
             else:
                 self._request_tracker.track_request(f'custom_{domain}_request', response_status)
-                return None  # I highly doubt that other request methods will work if the custom one failed
+                return None  # Other methods are unlikely to work if the custom one fails
 
         # Set a random User-Agent header to avoid being blocked
         self._headers['User-Agent'] = choice(self._user_agents)
@@ -97,20 +97,16 @@ class WebContentFetcher:
         """
         Fetch the raw HTML content of a webpage using the "requests" library.
 
-        Args:
-            url (str): The URL of the webpage to fetch.
-            headers (Optional[Dict[str, str]]): Custom headers to use for the request.
-
-        Returns:
-            Tuple[int, str]: A tuple containing the HTTP status code and the raw HTML content.
+        :param url: The URL of the webpage to fetch.
+        :param headers: Optional custom headers to use for the request.
+        :return: A tuple containing the HTTP status code and the raw HTML content.
         """
         try:
             r = requests.get(url, headers=headers if headers else self._headers, timeout=10)
 
-            # If the encoding is not apparent, return an empty string and pass on to playwright
+            # If the encoding is not apparent, return an empty string and pass on to Playwright
             if not r.apparent_encoding:
                 return 500, ''
-            # For some reason, the encoding is not set correctly for some sites?
             r.encoding = r.apparent_encoding
             return r.status_code, r.text
         except Exception as e:
@@ -121,11 +117,8 @@ class WebContentFetcher:
         """
         Fetch the raw HTML content of a webpage using Playwright.
 
-        Args:
-            url (str): The URL of the webpage to fetch.
-
-        Returns:
-            Tuple[int, str]: A tuple containing the HTTP status code and the raw HTML content.
+        :param url: The URL of the webpage to fetch.
+        :return: A tuple containing the HTTP status code and the raw HTML content.
         """
         try:
             with sync_playwright() as p:
@@ -151,15 +144,8 @@ class WebContentFetcher:
         This version waits for specific selectors to be visible, extracts the relevant content,
         and then returns the full HTML including the extracted article content.
 
-        Parameters:
-        url (str): The URL of the MSN article to fetch.
-
-        Returns:
-        Tuple[int, str]: A tuple containing:
-            - An integer status code (200 for success, 500 for error)
-            - A string containing either:
-                - The full HTML content of the page including the extracted article content if successful
-                - An empty string if an error occurred
+        :param url: The URL of the MSN article to fetch.
+        :return: A tuple containing the HTTP status code and the full HTML content.
         """
         with sync_playwright() as p:
             browser = p.firefox.launch(headless=True)
@@ -246,7 +232,6 @@ class WebContentFetcher:
         """
         Get the RequestTracker object used by the WebContentFetcher.
 
-        Returns:
-            RequestTracker: The RequestTracker object.
+        :return: The RequestTracker object.
         """
         return self._request_tracker

@@ -1,4 +1,5 @@
-# Path: globe_news_scraper/data_providers/article_extractor.py
+# path: globe_news_scraper/data_providers/article_extractor.py
+
 from typing import Optional, cast
 
 from goose3 import Goose  # type: ignore[import-untyped]
@@ -9,9 +10,16 @@ from pydantic_extra_types.language_code import LanguageAlpha2
 from globe_news_scraper.models import ArticleData
 
 
-def extract_article(
-        raw_html: str,
-) -> ArticleData:
+def extract_article(raw_html: str) -> ArticleData:
+    """
+    Extract the main content and metadata from an article's HTML using the Goose extractor.
+
+    This function first attempts to extract content using Goose. If Goose fails to extract the cleaned text,
+    it falls back to an alternative content extraction method.
+
+    :param raw_html: The raw HTML content of the article.
+    :return: An ArticleData object containing the cleaned text, metadata language, keywords, authors, and top image.
+    """
     g = Goose()
     goose_article = g.extract(raw_html=raw_html)
 
@@ -36,6 +44,15 @@ def extract_article(
 
 
 def _alternate_content_extraction(html_content: str) -> str:
+    """
+    An alternative method for extracting text content from HTML if Goose extraction fails.
+
+    This method uses BeautifulSoup to parse the HTML, remove comments, script, and style elements,
+    and then extract and clean the remaining text.
+
+    :param html_content: The HTML content to extract text from.
+    :return: A cleaned string containing the extracted text.
+    """
     soup = BeautifulSoup(html_content, "lxml")
 
     # Remove comments
@@ -58,6 +75,10 @@ def _alternate_content_extraction(html_content: str) -> str:
 def _parse_language_code(lang_code: str) -> Optional[LanguageAlpha2]:
     """
     Ensure that the provided language code is a valid LanguageAlpha2 code.
+
+    :param lang_code: The language code to validate.
+    :return: The validated LanguageAlpha2 code if valid.
+    :raises ValueError: If the language code is invalid.
     """
     try:
         return cast(LanguageAlpha2, languages.get(alpha_2=lang_code).alpha_2)
