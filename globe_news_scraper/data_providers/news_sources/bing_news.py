@@ -1,4 +1,5 @@
 # globe_news_scraper/data_providers/news_sources/bing_news.py
+
 import time
 import requests
 from datetime import datetime
@@ -24,13 +25,35 @@ class BingNewsRateLimitError(BingNewsError):
 
 
 class BingNewsSource(NewsSource):
+    """
+    A data provider class for fetching news articles from the Bing News API.
+
+    This class handles making requests to the Bing News API, processing the responses,
+    and managing rate limits using retries. It supports fetching trending news articles
+    for specific countries.
+    """
+
     def __init__(self, config: Config) -> None:
+        """
+        Initialize the BingNewsSource with the provided configuration.
+
+        :param config: Configuration object containing Bing News API settings.
+        """
         self._logger = structlog.get_logger()
         self._subscription_key = config.BING_SEARCH_SUBSCRIPTION_KEY
         self._endpoint = config.BING_SEARCH_ENDPOINT
         self._countries = config.BING_SEARCH_COUNTRIES
 
     def _make_request(self, url: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Make a GET request to the Bing News API with the specified URL and parameters.
+
+        :param url: The URL endpoint for the Bing News API request.
+        :param params: A dictionary of query parameters to include in the request.
+        :return: The JSON response from the API as a dictionary.
+        :raises BingNewsRateLimitError: If the API rate limit is exceeded (HTTP 429).
+        :raises BingNewsError: If any other request exception occurs.
+        """
         headers = {'Ocp-Apim-Subscription-Key': self._subscription_key}
         try:
             response = requests.get(url, headers=headers, params=params)
@@ -48,20 +71,17 @@ class BingNewsSource(NewsSource):
     )
     def get_country_trending_news(self, **kwargs: Any) -> List[NewsSourceArticleData]:
         """
-        Fetch trending news articles for a specific country, by providing no category in /news.
-        This is what the Bing News API does by default when not providing information in /news.
+        Fetch trending news articles for a specific country by making a request to the Bing News API.
 
-        For more information refer to this query parameter documentation by Microsoft:
-        https://learn.microsoft.com/en-us/bing/search-apis/bing-news-search/reference/query-parameters
-        
-        Args:
-            **kwargs: Additional keyword arguments to pass to the Bing News API. (see API ref.)
-            
-        Returns:
-            List[NewsSourceArticleData]: A list of NewsSourceArticle objects representing the trending news articles.
+        The method retries on rate limit errors, using exponential backoff. If no 'mkt' parameter is provided,
+        the default 'en-US' market is used.
+
+        :param kwargs: Additional keyword arguments to pass to the Bing News API.
+        :return: A list of NewsSourceArticleData objects representing the trending news articles.
+        :raises BingNewsError: If the market ('mkt') parameter is invalid or any other error occurs.
         """
 
-        # ensure that if mkt is provided it contains a valid CountryAlpha2 code
+        # Ensure that if 'mkt' is provided, it contains a valid CountryAlpha2 code
         mkt = kwargs.get('mkt', 'en-US')
         lang_code, country_code = mkt.split('-')
         cc = countries.get(alpha_2=country_code).alpha_2
@@ -82,9 +102,16 @@ class BingNewsSource(NewsSource):
         time.sleep(1)
         return self._process_news_response(trending_topic_response, cc, lang)
 
-    def _process_news_response(self, response: Dict[str, Any], cc: CountryAlpha2, lang: LanguageAlpha2) -> List[
-        NewsSourceArticleData]:
+    def _process_news_response(self, response: Dict[str, Any], cc: CountryAlpha2, lang: LanguageAlpha2) -> List[NewsSourceArticleData]:
+        """
+        Process the response from the Bing News API into a list of NewsSourceArticleData objects.
 
+        :param response: The JSON response from the Bing News API.
+        :param cc: The country code (alpha-2) for the articles.
+        :param lang: The language code (alpha-2) for the articles.
+        :return: A list of NewsSourceArticleData objects representing the articles.
+        :raises BingNewsError: If an error occurs while processing the response.
+        """
         try:
             processed_response = [
                 NewsSourceArticleData(
@@ -107,4 +134,9 @@ class BingNewsSource(NewsSource):
 
     @property
     def available_countries(self) -> List[str]:
+        """
+        Get the list of available countries in the BingNews search api.
+
+        :return: A list of country codes available in the BingNews search api.
+        """
         return cast(List[str], self._countries)

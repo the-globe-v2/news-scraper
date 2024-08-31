@@ -8,6 +8,13 @@ from datetime import datetime
 
 
 class NewsSourceArticleData(BaseModel):
+    """
+    Model representing the data structure for news articles retrieved from the different news apis.
+
+    This model includes fields for the title, URL, description, publication date, provider,
+    origin country, image URL, language, and the source API that fetched the article.
+    """
+
     title: str = Field(..., description="Title of the article")
     url: Annotated[str, HttpUrl] = Field(..., description="URL of the article")
     description: str = Field(..., description="Description of the article")
@@ -20,3 +27,7 @@ class NewsSourceArticleData(BaseModel):
 
     class Config:
         frozen = True
+        """Configuration options for the Pydantic model.
+
+        The `frozen` option makes the model immutable after creation, ensuring the data integrity of the article.
+        """

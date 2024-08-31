@@ -1,4 +1,5 @@
-# Path: globe_news_scraper/data_providers/news_pipeline/article_builder.py
+# path: globe_news_scraper/data_providers/news_pipeline/article_builder.py
+
 import datetime
 from typing import Optional, Dict, Any
 import structlog
@@ -19,13 +20,19 @@ class ArticleBuilderError(Exception):
 
 
 class ArticleBuilder:
+    """
+    A class responsible for constructing GlobeArticle objects from raw HTML content and metadata.
+
+    This class fetches article content, validates it, and builds structured GlobeArticle objects
+    using a combination of extracted data and metadata from the news source.
+    """
+
     def __init__(self, config: Config, telemetry: GlobeScraperTelemetry):
         """
         Initialize the ArticleBuilder.
 
-        Args:
-            config (Config): Configuration object containing necessary settings.
-            telemetry (GlobeScraperTelemetry): Telemetry object for tracking requests and articles. # should be optional
+        :param config: Configuration object containing necessary settings.
+        :param telemetry: Telemetry object for tracking requests and articles.
         """
         self._logger = structlog.get_logger()
         self._telemetry = telemetry
@@ -36,14 +43,10 @@ class ArticleBuilder:
         """
         Build a GlobeArticle object from a news item.
 
-        Args:
-            news_item (dict): A dictionary containing metadata of a news article.
-
-        Returns:
-            Optional[GlobeArticle]: A GlobeArticle object if successfully built, None otherwise.
+        :param news_item: A NewsSourceArticleData object containing metadata of a news article.
+        :return: A GlobeArticle object if successfully built, None otherwise.
         """
-
-        # Fetch the raw article content from a news_item URL
+        # Fetch the raw article content from the news_item URL
         raw_article = self._fetch_article_content(news_item.url)
         if not raw_article:
             self._telemetry.article_counter.track_scrape_attempt(news_item.url, success=False)
@@ -68,7 +71,7 @@ class ArticleBuilder:
             self._logger.debug(f"Invalid content for {news_item.url}: {issues}")
             return None
 
-        # Create a GlobeArticle object from the ArticleData and the data provided by the news api
+        # Create a GlobeArticle object from the ArticleData and the data provided by the news API
         try:
             globe_article_object = self._create_globe_article(article_data, news_item)
             self._telemetry.article_counter.track_scrape_attempt(news_item.url, success=True)
@@ -81,21 +84,13 @@ class ArticleBuilder:
     def _create_globe_article(self, extracted_data: ArticleData,
                               news_source_data: NewsSourceArticleData) -> GlobeArticle:
         """
-        Create a GlobeArticle object from a ArticleData and the additional news source data provided by the news api.
-        This method assumes reliable data from ArticleData and NewsSourceArticleData.
+        Create a GlobeArticle object from extracted ArticleData and additional news source data.
 
-        Args:
-            extracted_data (ArticleData): A ArticleData object containing extracted article content.
-            news_source_data (NewsSourceArticleData): Additional data about the news article from the source api.
-
-        Returns:
-            GlobeArticle: A GlobeArticle object if successfully create.
-
-        Raises:
-            ArticleBuilderError: If the GlobeArticle object cannot be created.
+        :param extracted_data: An ArticleData object containing extracted article content.
+        :param news_source_data: Additional data about the news article from the source API.
+        :return: A GlobeArticle object if successfully created.
+        :raises ArticleBuilderError: If the GlobeArticle object cannot be created.
         """
-
-
         try:
             built_globe_article = GlobeArticle(
                 title=news_source_data.title,
@@ -114,32 +109,24 @@ class ArticleBuilder:
             )
             self._logger.debug(f"Successfully created GlobeArticle object for {news_source_data.url}")
             return built_globe_article
-
         except Exception as e:
             raise ArticleBuilderError(f"Failed to create GlobeArticle object for {news_source_data.url}: {e}")
-
 
     def _fetch_article_content(self, url: str) -> Optional[str]:
         """
         Fetch the raw HTML content from the specified URL.
 
-        Args:
-            url (str): The URL of the webpage to fetch.
-
-        Returns:
-            Optional[str]: The raw HTML content as a string if successful, None if the fetch operation fails.
+        :param url: The URL of the webpage to fetch.
+        :return: The raw HTML content as a string if successful, None if the fetch operation fails.
         """
         return self._web_content_fetcher.fetch_content(url)
 
     @staticmethod
     def _extract_article_data(raw_html: str) -> ArticleData:
         """
-        When provided with a raw html string, uses Goose extractor to extract the article content.
+        Extract the main content of an article from its raw HTML using the Goose extractor.
 
-        Args:
-            raw_html (str): The raw HTML content of the article.
-
-        Returns:
-            ArticleData: A mutable version of the Goose Article object.
+        :param raw_html: The raw HTML content of the article.
+        :return: An ArticleData object containing the extracted content.
         """
         return extract_article(raw_html=raw_html)
