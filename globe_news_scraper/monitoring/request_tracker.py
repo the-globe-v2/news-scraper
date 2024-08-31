@@ -24,7 +24,9 @@ class RequestTracker:
     def get_success_rate(self, method: str) -> float:
         method_stats = self._requests[method]
         total = sum(count for count in method_stats.values())
-        return method_stats[200] / total if total > 0 else 0.0
+        if 200 in method_stats:
+            return method_stats[200] / total if total > 0 else 0.0
+        else: return 0.0
 
     def get_all_success_rates(self) -> Dict[str, float]:
         return {method: self.get_success_rate(method) for method in self._requests}
