@@ -12,7 +12,19 @@ from globe_news_scraper.config import Config
 
 
 class ContentValidator:
+    """
+    A class for validating and sanitizing web content to ensure it meets certain criteria.
+
+    This class checks for issues like prompt injections, unsafe patterns (e.g., scripts, iframes),
+    and content length, and provides methods to sanitize content.
+    """
+
     def __init__(self, config: Config):
+        """
+        Initialize the ContentValidator with configuration settings.
+
+        :param config: Configuration object containing validation settings.
+        """
         self._min_content_length = config.MIN_CONTENT_LENGTH
         self._max_content_length = config.MAX_CONTENT_LENGTH
         self._blocked_patterns = [
@@ -30,6 +42,15 @@ class ContentValidator:
         self._prompt_injection_scanner = PromptInjection(threshold=0.5, match_type=MatchType.TRUNCATE_TOKEN_HEAD_TAIL)
 
     def validate(self, content: str) -> Tuple[bool, List[str]]:
+        """
+        Validate the content against various rules and patterns.
+
+        This method checks the content length, looks for unsafe patterns,
+        and detects potential prompt injections.
+
+        :param content: The content to validate.
+        :return: A tuple containing a boolean indicating if the content is valid and a list of issues found.
+        """
         issues = []
 
         if self._max_content_length < len(content):
@@ -44,14 +65,28 @@ class ContentValidator:
         return len(issues) == 0, issues
 
     def _detect_prompt_injection(self, content: str) -> bool:
-        return cast(bool, self._prompt_injection_scanner.scan(content)[1])  # 3rd element is the boolean result
+        """
+        Detect potential prompt injection in the content using the prompt injection scanner.
+
+        :param content: The content to scan for prompt injections.
+        :return: True if a prompt injection is detected, False otherwise.
+        """
+        return cast(bool, self._prompt_injection_scanner.scan(content)[1])
 
     def sanitize(self, content: str) -> str:
+        """
+        Sanitize the content by removing or escaping potentially harmful content.
+
+        This method removes unsafe patterns, HTML tags, normalizes newlines, and escapes special characters.
+
+        :param content: The content to sanitize.
+        :return: The sanitized content as a string.
+        """
         # Remove or escape potentially harmful content
         for pattern in self._blocked_patterns:
             content = re.sub(pattern, '', content, flags=re.IGNORECASE | re.DOTALL)
 
-        # Remove HTML tags, this is likely NOT necessary due to gooses parser, but it's here just in case
+        # Remove HTML tags (as an additional precaution)
         content = re.sub(r'<[^>]+>', '', content)
 
         # Normalize newlines

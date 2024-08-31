@@ -1,5 +1,3 @@
-# path: globe_news_scraper/monitoring/__init__.py
-
 import structlog
 from typing import Dict
 from collections import defaultdict
@@ -17,19 +15,35 @@ class GlobeScraperTelemetry:
     """
 
     def __init__(self) -> None:
+        """
+        Initialize the GlobeScraperTelemetry with a logger, request tracker, and article counter.
+        """
         self._logger = structlog.get_logger()
         self._request_tracker = RequestTracker()
         self._article_counter = ArticleCounter()
 
     @property
     def request_tracker(self) -> RequestTracker:
+        """
+        Get the request tracker instance.
+
+        :return: The RequestTracker instance used for tracking web request statistics.
+        """
         return self._request_tracker
 
     @property
     def article_counter(self) -> ArticleCounter:
+        """
+        Get the article counter instance.
+
+        :return: The ArticleCounter instance used for tracking article scraping statistics.
+        """
         return self._article_counter
 
     def log_request_summary(self) -> None:
+        """
+        Log a summary of all web requests tracked, including success and failure counts, and success rates.
+        """
         for method, stats in self._request_tracker.get_all_requests().items():
             success_rate = self._request_tracker.get_success_rate(method)
             self._logger.info(f"{method} request stats",
@@ -38,6 +52,9 @@ class GlobeScraperTelemetry:
                               success_rate=f"{success_rate:.2%}")
 
     def log_all_request_status_codes(self) -> None:
+        """
+        Log a detailed breakdown of HTTP status codes for all methods, as well as overall status code distribution.
+        """
         all_request_stats = self._request_tracker.get_all_requests()
         self._logger.info("Detailed status code breakdown for all methods: ")
         for method, stats in all_request_stats.items():
@@ -65,6 +82,9 @@ class GlobeScraperTelemetry:
                           **overall_percentages)
 
     def log_article_stats(self) -> None:
+        """
+        Log statistics about the articles scraped, including total attempted articles and stats per provider.
+        """
         total_articles = self._article_counter.get_total_attempted_articles()
         provider_stats = self._article_counter.get_all_provider_stats()
         self._logger.info("Article scraping stats",

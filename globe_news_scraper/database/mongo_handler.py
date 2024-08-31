@@ -15,7 +15,20 @@ class MongoHandlerError(Exception):
 
 
 class MongoHandler:
+    """
+    A handler class for managing MongoDB operations related to GlobeArticle objects.
+
+    This class is responsible for establishing a connection to a MongoDB database,
+    checking necessary permissions, and providing methods for inserting and querying articles.
+    """
+
     def __init__(self, config: Config) -> None:
+        """
+        Initialize the MongoHandler with the provided configuration.
+
+        :param config: Configuration object containing MongoDB settings.
+        :raises MongoHandlerError: If the MongoDB connection or any checks fail.
+        """
         self._logger = structlog.get_logger()
         self._config = config
         try:
@@ -46,6 +59,14 @@ class MongoHandler:
             raise MongoHandlerError(f"Unexpected error occurred: {str(e)}")
 
     def _check_permissions(self) -> None | OperationFailure:
+        """
+        Check the necessary permissions for the MongoDB operations.
+
+        This method checks if the MongoDB user has the required permissions to perform
+        read, write, and index creation operations on the 'articles' collection.
+
+        :return: None if permissions are sufficient; OperationFailure if any permission check fails.
+        """
         try:
             # Check read permission
             self._articles.find_one()
@@ -65,13 +86,11 @@ class MongoHandler:
     def insert_bulk_articles(self, articles: List[GlobeArticle]) -> Tuple[List[Any], List[Dict[str, Any]]]:
         """
         Insert multiple GlobeArticle objects into the MongoDB collection, returning the inserted IDs and any errors.
+
         Before inserting, the GlobeArticle objects are serialized to a dictionary for compatibility with MongoDB.
 
-        Args:
-            articles (List[GlobeArticle]): A list of GlobeArticle objects to insert.
-
-        Returns:
-            Tuple[List[Any], List[Dict[str, Any]]]: A tuple containing the inserted IDs and any errors that occurred.
+        :param articles: A list of GlobeArticle objects to insert.
+        :return: A tuple containing the inserted IDs and any errors that occurred.
         """
         serialized_articles = [self._serialize_article(article) for article in articles]
         errors: List[Dict[str, Any]] = []
@@ -111,6 +130,12 @@ class MongoHandler:
         return inserted_ids, errors
 
     def does_article_exist(self, url: str) -> bool:
+        """
+        Check if an article with the given URL already exists in the MongoDB collection.
+
+        :param url: The URL of the article to check.
+        :return: True if the article exists, False otherwise.
+        """
         try:
             return self._articles.count_documents({"url": url}, limit=1) > 0
         except PyMongoError as e:
@@ -122,6 +147,15 @@ class MongoHandler:
 
     @staticmethod
     def _serialize_article(article: GlobeArticle) -> Dict[str, Any]:
+        """
+        Serialize a GlobeArticle object to a dictionary for MongoDB insertion.
+
+        This method converts a GlobeArticle object to a dictionary and ensures that
+        certain fields are properly formatted for storage in MongoDB.
+
+        :param article: The GlobeArticle object to serialize.
+        :return: A dictionary representing the serialized article.
+        """
         serialized_article = article.model_dump()
         serialized_article.update({
             'url': str(article.url),

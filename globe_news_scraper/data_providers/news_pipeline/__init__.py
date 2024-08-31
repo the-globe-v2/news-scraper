@@ -9,11 +9,11 @@ from pymongo.errors import BulkWriteError
 from globe_news_scraper.config import Config
 from globe_news_scraper.models import GlobeArticle
 from globe_news_scraper.monitoring import GlobeScraperTelemetry
-from globe_news_scraper.database.mongo_handler import MongoHandler
+from globe_news_scraper.database import MongoHandler
 from globe_news_scraper.data_providers.news_pipeline.article_builder import ArticleBuilder
 from globe_news_scraper.data_providers.news_sources.models import NewsSourceArticleData
 from globe_news_scraper.data_providers.news_sources.base import NewsSource
-from globe_news_scraper.data_providers.news_sources.factory import NewsSourceFactory
+from globe_news_scraper.data_providers.news_sources import NewsSourceFactory
 
 
 class NewsPipeline:
