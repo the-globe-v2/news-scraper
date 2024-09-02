@@ -1,6 +1,7 @@
 # path: globe_news_scraper/config.py
 
-from typing import List, Dict, Annotated
+from typing import List, Dict, Annotated, Literal
+
 from pydantic import Field, HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -10,6 +11,11 @@ class Config(BaseSettings):
     Configuration class using Pydantic for automatic environment variable loading and type checking.
     """
     model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra='ignore')
+
+    # General Configuration
+    ENV: Literal['prod', 'dev', 'test'] = Field(default='dev')
+    CRON_SCHEDULE: str = Field(default="0 2 * * *")
+    RUN_ON_STARTUP: bool = Field(default=False)
 
     # Logging
     LOG_LEVEL: str = Field(default='INFO')

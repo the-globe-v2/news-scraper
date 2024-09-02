@@ -10,3 +10,5 @@ pymongo~=4.8.0
 llm_guard~=0.3.14
 pycountry~=24.6.1
 tenacity~=9.0.0
+pydantic-settings~=2.4.0
+croniter~=3.0.3
