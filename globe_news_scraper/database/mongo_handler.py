@@ -1,9 +1,9 @@
 # path: globe_news_scraper/database/mongo_handler.py
-
-from typing import List, Dict, Any, Tuple
+from enum import unique
+from typing import List, Dict, Any, Tuple, Optional
 
 import structlog
-from pymongo import MongoClient
+from pymongo import MongoClient, IndexModel, ASCENDING, DESCENDING
 from pymongo.errors import BulkWriteError, PyMongoError, ExecutionTimeout, OperationFailure
 
 from globe_news_scraper.config import Config
@@ -49,8 +49,7 @@ class MongoHandler:
                 raise MongoHandlerError("Collection 'articles' does not exist")
 
             # Check permissions
-            if check_perms := self._check_permissions():
-                raise check_perms
+            self._check_permissions()
 
             self._logger.info("MongoDB connection and permissions verified successfully")
         except PyMongoError as e:
@@ -58,30 +57,143 @@ class MongoHandler:
         except Exception as e:
             raise MongoHandlerError(f"Unexpected error occurred: {str(e)}")
 
-    def _check_permissions(self) -> None | OperationFailure:
+    def initialize_database(self) -> None:
+        """Initialize the database with necessary collections and indexes."""
+        try:
+            # Define the indexes we want to create
+            indexes = [
+                IndexModel([("url", ASCENDING)], unique=True, name="url_1"),
+                IndexModel([("title", ASCENDING)], unique=True, name="title_1"),
+                IndexModel([("date_published", DESCENDING)], name="date_published_-1"),
+                IndexModel([("category", ASCENDING)], name="category_1"),
+                IndexModel([("origin_country", ASCENDING)], name="origin_country_1"),
+                IndexModel([("post_processed", ASCENDING), ("date_scraped", DESCENDING)], name="post_processed_1_date_scraped_-1")
+            ]
+
+            # Create or update indexes
+            for index in indexes:
+                try:
+                    self._articles.create_index(index.document["key"], unique=index.document.get("unique", False), name=index.document["name"])
+                except OperationFailure as e:
+                    if "already exists with different options" in str(e):
+                        self._logger.warning(f"Updating existing index: {index.document['name']}")
+                        self._articles.drop_index(index.document["name"])
+                        self._articles.create_index(index.document["key"], unique=index.document.get("unique", False), name=index.document["name"])
+                    else:
+                        raise
+
+            # Create the views
+            self._create_daily_summary_view()
+            self._create_filtered_articles_view()
+
+            self._logger.info("Database initialized successfully")
+        except PyMongoError as e:
+            raise MongoHandlerError(f"Failed to initialize database: {str(e)}")
+
+    def _create_daily_summary_view(self) -> None:
+        """
+        Create the daily_article_summary_by_country view, used by The Globe app to preload artice urls.
+        """
+        self._db.command({
+            'create': 'daily_article_summary_by_country',
+            'viewOn': 'articles',
+            'pipeline': [
+                # Step 1: Project relevant fields for further processing
+                {
+                    '$project': {
+                        'date': {'$dateToString': {'format': "%Y-%m-%d", 'date': "$date_published"}},
+                        'origin_country': 1,  # Include the country of origin
+                        'url': 1  # Include the URL field
+                    }
+                },
+                # Step 2: Group articles by date and country of origin, and count the number of articles per group
+                {
+                    '$group': {
+                        '_id': {
+                            'date': '$date',  # Group by formatted date
+                            'origin_country': '$origin_country'  # Group by country of origin
+                        },
+                        'count': {'$sum': 1},  # Count the number of articles in each group
+                        'article_urls': {'$addToSet': '$url'}  # Collect the article urls in each group
+                    }
+                },
+                # Step 3: Group results by date, creating an array of countries with their article counts and URLs
+                {
+                    '$group': {
+                        '_id': '$_id.date',  # Group by date
+                        'countries': {
+                            '$push': {  # Create an array of countries with their counts and article urls
+                                'country': '$_id.origin_country',
+                                'count': '$count',
+                                'article_urls': '$article_urls'
+                            }
+                        },
+                        'total_count': {'$sum': '$count'}  # Calculate the total number of articles for the date
+                    }
+                },
+                # Step 4: Project the final structure of the view
+                {
+                    '$project': {
+                        '_id': 0,  # Exclude the MongoDB auto-generated ID
+                        'date': '$_id',  # Include the date
+                        'countries': 1,  # Include the array of countries with their article data
+                        'total_count': 1  # Include the total count of articles for the date
+                    }
+                },
+                # Step 5: Sort the results by date in descending order
+                {
+                    '$sort': {'date': -1}  # Sort by date (newest first)
+                }
+            ]
+        })
+
+    def _create_filtered_articles_view(self) -> None:
+        """
+        Create the filtered_articles view to display only post-processed articles with translated fields.
+        """
+        self._db.command({
+            "create": "filtered_articles",
+            "viewOn": "articles",
+            "pipeline": [
+                {"$match": {"post_processed": True}},
+                {"$project": {
+                    "url": 1,
+                    "title": "$title_translated",
+                    "description": "$description_translated",
+                    "date_published": 1,
+                    "provider": 1,
+                    "language": 1,
+                    "origin_country": 1,
+                    "keywords": 1,
+                    "category": 1,
+                    "authors": 1,
+                    "related_countries": 1,
+                    "image_url": 1,
+                    "_id": 0
+                }}
+            ]
+        })
+
+    def _check_permissions(self) -> None:
         """
         Check the necessary permissions for the MongoDB operations.
 
         This method checks if the MongoDB user has the required permissions to perform
         read, write, and index creation operations on the 'articles' collection.
 
-        :return: None if permissions are sufficient; OperationFailure if any permission check fails.
+        :raises OperationFailure: If any of the permissions checks fail.
         """
-        try:
-            # Check read permission
-            self._articles.find_one()
+        # Check read permission
+        self._articles.find_one()
 
-            # Check write permission
-            test_doc = {"_id": "test", "test": True}
-            self._articles.insert_one(test_doc)
-            self._articles.delete_one({"_id": "test"})
+        # Check write permission
+        test_doc = {"_id": "test", "test": True}
+        self._articles.insert_one(test_doc)
+        self._articles.delete_one({"_id": "test"})
 
-            # Check index creation permission
-            self._articles.create_index("url", unique=True)
-            self._articles.drop_index("url_1")
-
-        except OperationFailure as of:
-            return of
+        # Check index creation permission
+        self._articles.create_index("url", unique=True)
+        self._articles.drop_index("url_1")
 
     def insert_bulk_articles(self, articles: List[GlobeArticle]) -> Tuple[List[Any], List[Dict[str, Any]]]:
         """

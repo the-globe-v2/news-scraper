@@ -4,7 +4,6 @@
 
 Welcome to the Globe News Scraper, a Python-based tool designed to efficiently scrape, process, and store news articles from various sources. This project is designed to run in a containerized environment and is capable of handling large volumes of data while ensuring robustness and resilience.
 
-
 ## Overview
 
 The Globe News Scraper is a comprehensive news scraping tool that integrates multiple components for fetching, processing, and storing news articles from various sources. It uses a pipeline architecture that handles everything from data acquisition to database storage, ensuring that articles are scraped and processed efficiently.
@@ -26,7 +25,7 @@ For more details on the codebase, refer to the following sections of the documen
 
 ### Deployment Architecture
 
-The Globe News Scraper is designed for deployment in a containerized environment using Docker. The scraper can be scheduled to run periodically using cron jobs or similar scheduling tools.
+The Globe News Scraper is designed for deployment in a containerized environment using Docker. It can be scheduled to run periodically using cron jobs or similar scheduling tools.
 
 ### Data Flow
 
@@ -54,30 +53,74 @@ The Globe News Scraper uses a centralized `Config` class, built with Pydantic, t
 - **Environment Variable Management**: Configuration values are automatically loaded from environment variables, with defaults set in a `.env` file.
 - **Type Validation**: Ensures that all configurations are correctly typed and validated at startup.
 
-For detailed information on configuration options and their usage, visit the [Configuration section](#configuration).
+For detailed information on configuration options and their usage, visit the [Configuration section](https://mavial.notion.site/Globe-News-Scraper-95c5f9dfe79944599b63d719024a35df).
 
 ## Setup and Deployment
 
-To set up and deploy the Globe News Scraper, follow these steps:
+### Prerequisites
 
-1. **Install dependencies**:
-    ```bash
-    python -m pip install -r requirements.txt
-    ```
-2. **Run the scraper**:
-    ```bash
-    python ./main.py --env=dev
-    ```
+- Python 3.12+
+- Docker (for containerized deployment)
+- MongoDB
 
-**Docker Setup**: The project is designed to run within a Docker container. A sample `docker-compose.yml` file is provided for easy deployment. The scraper can be scheduled to run periodically using a `crontab` file.
+### Installation
 
-For detailed setup instructions and deployment options, see the [Setup and Deployment section](https://mavial.notion.site/Globe-News-Scraper-95c5f9dfe79944599b63d719024a35df).
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/globe-news-scraper.git
+   cd globe-news-scraper
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+### Database Initialization
+
+Before running the scraper for the first time, initialize the database:
+
+```bash
+python -m globe_news_scraper.database.db_init --env prod
+```
+
+### Running the Scraper
+
+To run the scraper locally:
+
+```bash
+python main.py --env prod --cron-schedule "0 2 * * *" --run-now
+```
+
+Command-line arguments:
+- `--env`: Specify the environment (dev/prod/test)
+- `--log-level`: Set the logging level
+- `--cron-schedule`: Set the cron schedule
+- `--run-now`: Run the scraper immediately on startup
+
+### Docker Deployment
+
+1. Build the Docker image:
+   ```bash
+   docker build -t globe-news-scraper .
+   ```
+
+2. Run the container:
+   ```bash
+   docker run -e SCRAPER_ENV=prod -e SCRAPER_CRON_SCHEDULE="0 2 * * *" globe-news-scraper
+   ```
 
 ## Logging
 
 Logging in the Globe News Scraper is managed through a combination of Python’s standard `logging` module and `structlog`. The logging configuration is flexible, allowing different formats for development and production environments.
 
-- **Error Filtering**: The `WarningFilter` class prevents specific non-critical warnings from cluttering the logs.
-- **Rotating File Logs**: Logs are stored in files with rotation to prevent excessive file sizes.
+## Database Structure
+
+The MongoDB database includes the following key components:
+- `articles` collection: Stores the scraped articles.
+- `failed_articles` collection: Stores articles that failed to post process.
+- `daily_article_summary_by_country` view: Provides a summary of articles by date and country.
+- `filtered_articles` view: Displays only post-processed articles with translated fields.
+
 
 For more details on configuring and using logging, visit the [Logging section](https://mavial.notion.site/Globe-News-Scraper-95c5f9dfe79944599b63d719024a35df).

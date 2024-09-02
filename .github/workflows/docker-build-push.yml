@@ -12,6 +12,7 @@ on:
       - 'main.py'
       - 'setup_database.py'
       - 'Dockerfile'
+      - 'entrypoint.sh'
   workflow_dispatch:
 
 permissions:
