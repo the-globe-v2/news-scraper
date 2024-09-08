@@ -1,6 +1,6 @@
 # path: globe_news_scraper/database/mongo_handler.py
-from enum import unique
-from typing import List, Dict, Any, Tuple, Optional
+from datetime import datetime, timezone
+from typing import List, Dict, Any, Tuple
 
 import structlog
 from pymongo import MongoClient, IndexModel, ASCENDING, DESCENDING
@@ -67,24 +67,30 @@ class MongoHandler:
                 IndexModel([("date_published", DESCENDING)], name="date_published_-1"),
                 IndexModel([("category", ASCENDING)], name="category_1"),
                 IndexModel([("origin_country", ASCENDING)], name="origin_country_1"),
-                IndexModel([("post_processed", ASCENDING), ("date_scraped", DESCENDING)], name="post_processed_1_date_scraped_-1")
+                IndexModel([("post_processed", ASCENDING), ("date_scraped", DESCENDING)],
+                           name="post_processed_1_date_scraped_-1")
             ]
 
             # Create or update indexes
             for index in indexes:
                 try:
-                    self._articles.create_index(index.document["key"], unique=index.document.get("unique", False), name=index.document["name"])
+                    self._articles.create_index(index.document["key"], unique=index.document.get("unique", False),
+                                                name=index.document["name"])
                 except OperationFailure as e:
                     if "already exists with different options" in str(e):
                         self._logger.warning(f"Updating existing index: {index.document['name']}")
                         self._articles.drop_index(index.document["name"])
-                        self._articles.create_index(index.document["key"], unique=index.document.get("unique", False), name=index.document["name"])
+                        self._articles.create_index(index.document["key"], unique=index.document.get("unique", False),
+                                                    name=index.document["name"])
                     else:
                         raise
 
             # Create the views
             self._create_daily_summary_view()
             self._create_filtered_articles_view()
+
+            # Create validation schema for the articles collection
+            self._configure_schema_validation()
 
             self._logger.info("Database initialized successfully")
         except PyMongoError as e:
@@ -174,6 +180,85 @@ class MongoHandler:
             ]
         })
 
+    def _configure_schema_validation(self) -> None:
+        """
+        Configure schema validation for the 'articles' and 'failed_articles' collections.
+
+        This method sets up schema validation rules for both collections to ensure
+        that documents adhere to a specific structure and data types. It defines a
+        common base schema and applies additional fields for the 'failed_articles'
+        collection.
+
+        The method uses strict validation and will raise an error for any document
+        that doesn't conform to the schema during insert or update operations.
+        """
+        base_required = ["title", "url", "description", "date_published", "provider", "content",
+                         "origin_country", "source_api", "schema_version", "date_scraped", "post_processed"]
+
+        base_properties = {
+            "title": {"bsonType": "string", "description": "The headline or title of the article"},
+            "title_translated": {"bsonType": ["string", "null"], "description": "The translated title of the article"},
+            "url": {"bsonType": "string", "pattern": "^https?://\\S+$",
+                    "description": "The web address where the article can be found"},
+            "description": {"bsonType": "string",
+                            "description": "A brief summary or description of the article's content"},
+            "description_translated": {"bsonType": ["string", "null"],
+                                       "description": "The translated description of the article"},
+            "date_published": {"bsonType": "date",
+                               "description": "The date and time when the article was originally published"},
+            "provider": {"bsonType": "string",
+                         "description": "The name of the news outlet or platform that published the article"},
+            "language": {"bsonType": ["string", "null"], "pattern": "^[a-z]{2}$",
+                         "description": "The primary language of the article's content, in ISO 639-1 format"},
+            "content": {"bsonType": "string", "description": "The main body text of the article"},
+            "origin_country": {"bsonType": "string", "pattern": "^[A-Z]{2}$",
+                               "description": "The country where the article was published, in ISO 3166-1 alpha-2 format"},
+            "keywords": {"bsonType": "array", "items": {"bsonType": "string"},
+                         "description": "A list of relevant keywords or tags associated with the article"},
+            "source_api": {"bsonType": "string",
+                           "description": "The name or identifier of the API from which the article data was retrieved"},
+            "schema_version": {"bsonType": "string",
+                               "description": "The version of the data schema used to structure this article's information"},
+            "date_scraped": {"bsonType": "date",
+                             "description": "The date and time when the article was collected by the scraper"},
+            "category": {"bsonType": ["string", "null"],
+                         "description": "The topical category or section under which the article is classified"},
+            "authors": {"bsonType": ["array", "null"], "items": {"bsonType": "string"},
+                        "description": "A list of the article's authors or contributors"},
+            "related_countries": {"bsonType": ["array", "null"],
+                                  "items": {"bsonType": "string", "pattern": "^[A-Z]{2}$"},
+                                  "description": "Countries mentioned or relevant to the article's content"},
+            "image_url": {"bsonType": ["string", "null"], "pattern": "^https?://\\S+$",
+                          "description": "The URL of the main image associated with the article"},
+            "post_processed": {"bsonType": "bool",
+                               "description": "Will be true once the article is curated by globe_news_locator"}
+        }
+
+        articles_schema = {
+            "bsonType": "object",
+            "required": base_required,
+            "properties": base_properties
+        }
+
+        failed_articles_schema = {
+            "bsonType": "object",
+            "required": base_required + ["failure_reason"],
+            "properties": {
+                **base_properties,
+                "_id": {"bsonType": "objectId", "description": "The unique identifier for the failed article"},
+                "failure_reason": {"bsonType": "string", "description": "The reason why the article failed to process"}
+            }
+        }
+
+        for collection, schema in [("articles", articles_schema),
+                                   ("failed_articles", failed_articles_schema)]:
+            self._db.command({
+                "collMod": collection,
+                "validator": {"$jsonSchema": schema},
+                "validationLevel": "strict",
+                "validationAction": "error"
+            })
+
     def _check_permissions(self) -> None:
         """
         Check the necessary permissions for the MongoDB operations.
@@ -187,7 +272,26 @@ class MongoHandler:
         self._articles.find_one()
 
         # Check write permission
-        test_doc = {"_id": "test", "test": True}
+        test_doc = {
+            "_id": "test",
+            "title": "Test Article Title",
+            "url": "https://example.com/test-article",
+            "description": "This is a test article description.",
+            "date_published": datetime.now(timezone.utc),
+            "provider": "Test News Provider",
+            "content": "This is the main content of the test article.",
+            "origin_country": "FR",
+            "source_api": "test_api",
+            "schema_version": "1.1",
+            "date_scraped": datetime.now(timezone.utc),
+            "post_processed": False,
+            "language": "fr",
+            "keywords": ["test", "article"],
+            "category": "SOCIETY",
+            "authors": ["Test Author"],
+            "related_countries": ["DE", "ES"],
+            "image_url": "https://example.com/test-image.jpg"
+        }
         self._articles.insert_one(test_doc)
         self._articles.delete_one({"_id": "test"})
 
