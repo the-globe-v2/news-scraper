@@ -3,11 +3,13 @@
 import argparse
 import structlog
 import sys
+
+from globe_news_scraper import Config
 from globe_news_scraper.config import get_config
 from globe_news_scraper.database.mongo_handler import MongoHandler, MongoHandlerError
 from globe_news_scraper.logger import configure_logging
 
-def setup_database(config) -> None:
+def setup_database(config: Config) -> None:
     """
     Set up the database by initializing it with the necessary collections to work within the Globe project.
 
