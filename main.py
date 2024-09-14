@@ -1,6 +1,5 @@
 import time
 import argparse
-import os
 import structlog
 from datetime import datetime
 from croniter import croniter

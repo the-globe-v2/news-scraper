@@ -1,12 +1,11 @@
-# globe_news_scraper/data_providers/content_validator.py
+# path: globe_news_scraper/data_providers/content_validator.py
 
-import re
 import html
+import re
 import unicodedata
 from typing import List, Tuple, cast
 
-from llm_guard.input_scanners import PromptInjection  # type: ignore[import-untyped]
-from llm_guard.input_scanners.prompt_injection import MatchType  # type: ignore[import-untyped]
+from llm_guard.input_scanners import InvisibleText  # type: ignore[import-untyped]
 
 from globe_news_scraper.config import Config
 
@@ -15,7 +14,7 @@ class ContentValidator:
     """
     A class for validating and sanitizing web content to ensure it meets certain criteria.
 
-    This class checks for issues like prompt injections, unsafe patterns (e.g., scripts, iframes),
+    This class checks for and sanitizes issues like gibberish content, unsafe patterns (e.g., scripts, iframes),
     and content length, and provides methods to sanitize content.
     """
 
@@ -35,18 +34,14 @@ class ContentValidator:
             r'\$[a-zA-Z_][a-zA-Z0-9_]*',  # Match potential MongoDB operators
         ]
 
-        # Initialize LLM prompt scanners
-        # In my testing this match type catches enough prompt injections without taking too long
-        # It is not perfect but from my testing, if a prompt injection is makes it past this scanner
-        # it also doesn't affect the output of the model. CHUNKS and SENTENCE match types are more accurate
-        self._prompt_injection_scanner = PromptInjection(threshold=0.5, match_type=MatchType.TRUNCATE_TOKEN_HEAD_TAIL)
+        self._invisible_text_sanitizer = InvisibleText()
 
     def validate(self, content: str) -> Tuple[bool, List[str]]:
         """
         Validate the content against various rules and patterns.
 
         This method checks the content length, looks for unsafe patterns,
-        and detects potential prompt injections.
+        and detects potentially malicious code.
 
         :param content: The content to validate.
         :return: A tuple containing a boolean indicating if the content is valid and a list of issues found.
@@ -63,15 +58,6 @@ class ContentValidator:
                 issues.append(f"Content contains potentially unsafe pattern: {pattern}")
 
         return len(issues) == 0, issues
-
-    def _detect_prompt_injection(self, content: str) -> bool:
-        """
-        Detect potential prompt injection in the content using the prompt injection scanner.
-
-        :param content: The content to scan for prompt injections.
-        :return: True if a prompt injection is detected, False otherwise.
-        """
-        return cast(bool, self._prompt_injection_scanner.scan(content)[1])
 
     def sanitize(self, content: str) -> str:
         """
@@ -100,4 +86,16 @@ class ContentValidator:
         # https://unicode.org/reports/tr15/
         content = unicodedata.normalize('NFKC', content)
 
+        # Remove invisible text
+        content = self._sanitize_invisible_text(content)
+
         return content
+
+    def _sanitize_invisible_text(self, content: str) -> str:
+        """
+        Sanitize the content by removing invisible text.
+
+        :param content: The content to scan for gibberish.
+        :return: The sanitized content as a string.
+        """
+        return cast(str, self._invisible_text_sanitizer.scan(content)[0])
