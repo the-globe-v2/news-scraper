@@ -1,13 +1,13 @@
 # path: globe_news_scraper/data_providers/news_pipeline/web_content_fetcher.py
 
 import time
-import structlog
-import requests
 from random import choice
 from typing import Optional, Dict, Callable, Tuple, cast
 from urllib.parse import urlparse
 
-from playwright.sync_api import sync_playwright, Error as PlaywrightError
+import requests
+import structlog
+from playwright.sync_api import sync_playwright, TimeoutError, Error as PlaywrightError
 
 from globe_news_scraper.config import Config
 from globe_news_scraper.monitoring.request_tracker import RequestTracker
@@ -218,14 +218,16 @@ class WebContentFetcher:
                     return document.documentElement.outerHTML;
                 }''')
 
-                context.close()
-                browser.close()
                 return 200, full_html_with_content
+            except TimeoutError:
+                self._logger.warning(f"Failed to fetch article from MSN: Timeout exceeded for {url}")
+                return 408, ''
             except Exception as e:
                 self._logger.warning(f"MSN - Failed to fetch article content for {url}: {str(e)}")
+                return 500, ''
+            finally:
                 context.close()
                 browser.close()
-                return 500, ''
 
     @property
     def request_tracker(self) -> RequestTracker:

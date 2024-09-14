@@ -1,6 +1,6 @@
 # path: globe_news_scraper/database/mongo_handler.py
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 
 import structlog
 from pymongo import MongoClient, IndexModel, ASCENDING, DESCENDING
@@ -22,18 +22,18 @@ class MongoHandler:
     checking necessary permissions, and providing methods for inserting and querying articles.
     """
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, client: Optional[MongoClient] = None):
         """
         Initialize the MongoHandler with the provided configuration.
 
         :param config: Configuration object containing MongoDB settings.
+        :param client: Optional MongoClient instance to use for the connection.
         :raises MongoHandlerError: If the MongoDB connection or any checks fail.
         """
         self._logger = structlog.get_logger()
         self._config = config
         try:
-            # Establish connection
-            self._client: MongoClient = MongoClient(self._config.MONGO_URI)
+            self._client = client or MongoClient(self._config.MONGO_URI)
             self._db = self._client[self._config.MONGO_DB]
             self._articles = self._db.articles
 
@@ -317,9 +317,9 @@ class MongoHandler:
                 result = self._articles.insert_many(serialized_articles, ordered=False)
                 inserted_ids = result.inserted_ids
             except BulkWriteError as bwe:
-                self._logger.error("MongoDB Bulk write error occurred", exc_info=True)
-
                 for error in bwe.details.get('writeErrors', []):
+                    self._logger.error("MongoDB Bulk write error occurred",
+                                       article_url=serialized_articles[error['index']]['url'])
                     errors.append({
                         'index': error['index'],
                         'url': serialized_articles[error['index']]['url'],

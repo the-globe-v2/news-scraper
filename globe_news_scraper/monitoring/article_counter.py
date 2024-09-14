@@ -15,7 +15,7 @@ class ArticleCounter:
         self._total_attempted_articles = 0
         self._article_providers: Dict[str, Dict[str, int]] = defaultdict(lambda: {"failed": 0, "successful": 0})
 
-    def track_scrape_attempt(self, url: str, success: bool) -> None:
+    def track_build_attempt(self, url: str, success: bool) -> None:
         """
         Track an attempt to scrape an article, updating the total count and the count for the specific provider.
 

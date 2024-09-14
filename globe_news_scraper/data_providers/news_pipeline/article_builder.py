@@ -2,6 +2,8 @@
 
 import datetime
 from typing import Optional, Dict, Any
+from xxlimited import Error
+
 import structlog
 from pycountry import languages
 from pydantic import HttpUrl
@@ -49,16 +51,20 @@ class ArticleBuilder:
         # Fetch the raw article content from the news_item URL
         raw_article = self._fetch_article_content(news_item.url)
         if not raw_article:
-            self._telemetry.article_counter.track_scrape_attempt(news_item.url, success=False)
+            self._telemetry.article_counter.track_build_attempt(news_item.url, success=False)
             self._logger.debug(f"No content to build GlobeArticle object with for {news_item.url}")
             return None
 
         # Build an ArticleData object from the raw article content
         try:
             article_data = self._extract_article_data(raw_article)
-        except ArticleBuilderError as e:
-            self._telemetry.article_counter.track_scrape_attempt(news_item.url, success=False)
-            self._logger.warning("Failed to extract article data", error=str(e))
+        except LookupError:
+            self._telemetry.article_counter.track_build_attempt(news_item.url, success=False)
+            self._logger.warning("Failed to extract article data with Goose extractor", url=news_item.url)
+            return None
+        except Error as e:
+            self._telemetry.article_counter.track_build_attempt(news_item.url, success=False)
+            self._logger.error(f"Unknown error occurred while extracting article data: {e}")
             return None
 
         # Sanitize the main article body content in the ArticleData
@@ -67,18 +73,18 @@ class ArticleBuilder:
         # Validate content in the ArticleData
         article_is_valid, issues = self._content_validator.validate(article_data.cleaned_text)
         if not article_is_valid:
-            self._telemetry.article_counter.track_scrape_attempt(news_item.url, success=False)
+            self._telemetry.article_counter.track_build_attempt(news_item.url, success=False)
             self._logger.debug(f"Invalid content for {news_item.url}: {issues}")
             return None
 
         # Create a GlobeArticle object from the ArticleData and the data provided by the news API
         try:
             globe_article_object = self._create_globe_article(article_data, news_item)
-            self._telemetry.article_counter.track_scrape_attempt(news_item.url, success=True)
+            self._telemetry.article_counter.track_build_attempt(news_item.url, success=True)
             return globe_article_object
         except ArticleBuilderError as e:
             self._logger.warning(e)
-            self._telemetry.article_counter.track_scrape_attempt(news_item.url, success=False)
+            self._telemetry.article_counter.track_build_attempt(news_item.url, success=False)
             return None
 
     def _create_globe_article(self, extracted_data: ArticleData,

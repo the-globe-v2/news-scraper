@@ -104,7 +104,7 @@ class NewsPipeline:
         Insert multiple articles into the database using a bulk operation.
         """
         try:
-            return self._db_handler.insert_bulk_articles(articles)[0]
+            return self._db_handler.insert_bulk_articles(articles)[0] if articles else []
         except BulkWriteError as bwe:
             self._logger.error(
                 "Bulk insert partially failed",

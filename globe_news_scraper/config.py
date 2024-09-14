@@ -1,6 +1,6 @@
 # path: globe_news_scraper/config.py
 
-from typing import List, Dict, Annotated, Literal
+from typing import List, Dict, Annotated, Literal, Optional
 
 from pydantic import Field, HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -14,7 +14,7 @@ class Config(BaseSettings):
 
     # General Configuration
     ENV: Literal['prod', 'dev', 'test'] = Field(default='dev')
-    CRON_SCHEDULE: str = Field(default="0 2 * * *")
+    CRON_SCHEDULE: Optional[str] = Field(default=None)
     RUN_ON_STARTUP: bool = Field(default=False)
 
     # Logging
