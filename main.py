@@ -1,8 +1,10 @@
-import time
 import argparse
-import structlog
+import time
 from datetime import datetime
+
+import structlog
 from croniter import croniter
+
 from globe_news_scraper import GlobeNewsScraper
 from globe_news_scraper.config import get_config
 from globe_news_scraper.logger import configure_logging
@@ -67,18 +69,19 @@ def main():
         scrape_news(config)
 
     # Set up the cron iterator
-    cron = croniter(cron_schedule, datetime.now())
+    if cron_schedule:
+        cron = croniter(cron_schedule, datetime.now())
 
-    # Main loop
-    while True:
-        next_run = cron.get_next(datetime)
-        logger.info(f"Next run scheduled for: {next_run}")
+        # Main loop
+        while True:
+            next_run = cron.get_next(datetime)
+            logger.info(f"Next run scheduled for: {next_run}")
 
-        while datetime.now() < next_run:
-            time.sleep(60)
+            while datetime.now() < next_run:
+                time.sleep(60)
 
-        logger.info("Starting scheduled scrape")
-        scrape_news(config)
+            logger.info("Starting scheduled scrape")
+            scrape_news(config)
 
 
 if __name__ == "__main__":
